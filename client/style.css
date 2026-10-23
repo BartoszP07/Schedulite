@@ -1,0 +1,234 @@
+/* Import font */
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap');
+
+:root{
+    --background-colour: rgb(255, 255, 255);
+    --text-colour: rgb(0, 0, 0);
+    --accent-colour: rgb(0, 0, 0);
+    --input-background-colour: rgb(255, 255, 255);
+    --input-font-size: 1.2rem;
+    --input-border-rad: 1rem;
+    --section-background-colour: rgb(255, 255, 255);
+    --border-width: 2px;
+    --border-colour: rgb(0, 0, 0);
+    --invalid-task-colour: rgb(150, 0, 0);
+    --valid-task-colour: rgb(0, 150, 0);
+    --task-background-colour: rgb(200, 200, 200);
+    --high-priority-colour: rgb(200, 0, 0);
+    --medium-priority-colour: rgb(202, 101, 0);
+    --low-priority-colour: rgb(0, 200, 0);
+    --delete-button-colour: rgb(255, 143, 143);
+}
+
+/* Set a style for every element */
+
+*{
+    color: var(--text-colour);
+    font-family: "Inter Tight";
+    font-weight: 400;
+    font-style: italic;
+    margin: 0px;
+    padding: 0px;
+    box-sizing: border-box;
+    flex-wrap: wrap;
+}
+
+/* Style for general elements */
+
+body{
+    background-color: var(--background-colour);
+    margin: 2rem;
+}
+
+button{
+    padding: 0.5rem;
+    outline: none;
+    border: solid;
+    border-width: var(--border-width);
+    border-radius: 0.5rem;
+    background-color: var(--input-background-colour);
+}
+
+button:hover{
+    cursor: pointer;
+}
+
+
+/* Styling for the new task input elements */
+
+
+.input-label-holder{
+    display: flex;
+    align-items: start;
+    justify-content: center;
+    flex-direction: column;
+    flex: 1;
+}
+
+#create-task-div{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+    gap: 1rem;
+    position: relative;
+    border: var(--border-width) solid var(--border-colour);
+    border-radius: 1rem;
+    padding: 10px;
+    margin-top: 0.5rem;
+    background-color: var(--section-background-colour);
+    width: 100%;
+}
+
+.custom-fieldset{
+    position: relative;
+    display: flex;
+    border: var(--border-width) solid var(--border-colour);
+    border-radius: 1rem;
+    padding: 10px;
+    margin-top: 0.5rem;
+    background-color: var(--section-background-colour);
+    width: 100%;
+}
+
+.custom-legend{
+    position: absolute;
+    top: -10px;
+    left: 10px;
+    background-color: var(--section-background-colour);
+    padding: 0 5px;
+    border-radius: 1rem;
+}
+
+.task-input-text{
+    background-color: var(--input-background-colour);
+    border: solid;
+    outline: none;
+    border-color: var(--accent-colour);
+    border-radius: var(--input-border-rad);
+    border-width: var(--border-width);;
+    font-size: var(--input-font-size);
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
+    width: 100%;
+    min-width: 15rem;
+}
+
+#inputs-holder{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+    gap: 1rem;
+    width: 100%;
+}
+
+/* Styling classes for scheduling button */
+button.invalid-task-input{
+    background-color: var(--invalid-task-colour);
+    color: white;
+}
+
+button.valid-task-input{
+    background-color: var(--valid-task-colour);
+    color: white;
+}
+
+/* Styling for a created task */
+#task-holder-div{
+    gap: 1rem;
+}
+
+.task-article {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    width: 100%;
+    padding: 0.3rem;
+    border: solid;
+    border-radius: var(--input-border-rad);
+    border-color: var(--border-colour);
+    border-width: var(--border-width);
+    background-color: var(--task-background-colour);
+}
+
+.task-info {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    
+    
+    border: none;
+    border-width: var(--border-width);
+    border-radius: var(--input-border-rad);
+    /* background-color: white; */
+}
+
+.task-info p{
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.short-info{
+    justify-content: center;
+}
+
+p.priority-text{
+    border: solid;
+    border-width: var(--border-width);
+    border-radius: calc(var(--input-border-rad) / 2);
+    border-color: var(--border-colour);
+    padding: 0.1rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+p.high-priority{
+    background-color: var(--high-priority-colour);
+}
+
+p.medium-priority{
+    background-color: var(--medium-priority-colour);
+}
+
+p.low-priority{
+    background-color: var(--low-priority-colour);
+}
+
+.info-holder{
+    width: 100%;
+    height: 4rem;
+    max-height: 4rem;
+    display: grid;
+    align-items: center;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+    border: solid;
+    border-color: var(--border-colour);
+    border-width: var(--border-width);
+    border-radius: var(--input-border-rad);
+    background-color: white;
+    margin-bottom: 0.5rem;
+}
+
+.ammend-task-btn{
+    padding: 0.3rem;
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+}
+
+.ammend-task-btn.delete{
+    background-color: var(--delete-button-colour);
+}
+
+.button-holder{
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}

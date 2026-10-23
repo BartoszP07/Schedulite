@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedulite</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1 id="main-title">Schedulite</h1>
+
+    <div id="create-task-div" class="custom-fieldset">
+        <span class="custom-legend">New Task</span>
+        <div id="inputs-holder">
+            <div class="input-label-holder">
+                <label for="task-title-inp" class="input-label">Title</label>
+                <input type="text" id="task-title-inp" class="task-input-text">
+            </div>
+            <div class="input-label-holder">
+                <label for="task-description-inp" class="input-label">Description</label>
+                <input type="text" id="task-description-inp" class="task-input-text">
+            </div>
+            <div class="input-label-holder">
+                <label for="task-priority-inp" class="input-label">Priority</label>
+                <select name="Priority" id="task-priority-inp" class="task-input-text">
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                </select>
+            </div>
+            <div class="input-label-holder">
+                <label for="task-deadline-inp" class="input-label">Deadline</label>
+                <input type="date" id="task-deadline-inp" class="task-input-text">
+            </div>
+            <div class="input-label-holder">
+                <label for="task-duration-inp" class="input-label">Duration (hrs)</label>
+                <input type="text" id="task-duration-inp" class="task-input-text">
+            </div>
+        </div>
+
+        <button id="create-task-btn">Schedule</button>
+
+    </div>
+
+    <div id="task-holder-div" class="custom-fieldset">
+        <span class="custom-legend">Scheduled Tasks</span>
+        <article class="task-article">
+            <div class="info-holder">
+                <div class="task-info">
+                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Praesentium corporis expedita eligendi dolores fuga. Unde ab
+                        fugiat distinctio. Doloremque, laudantium?</p>
+                </div>
+                <div class="task-info">
+                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. At corporis fuga voluptates veniam
+                        accusamus laboriosam tempore reprehenderit voluptatem, quas labore.</p>
+                </div>
+                <div class="task-info short-info">
+                    <p class="priority-text high-priority">High</p>
+                </div>
+                <div class="task-info short-info">
+                    <p>Due by deadline</p>
+                </div>
+                <div class="task-info short-info">
+                    <p>Approximately taking ... hours</p>
+                </div>
+            </div>
+            <div class="button-holder">
+                <button id="sync-task-btn" class="ammend-task-btn">Sync</button>
+                <button id="edit-task-btn" class="ammend-task-btn">Edit</button>
+                <button id="delete-task-btn" class="ammend-task-btn delete">Delete</button>
+            </div>
+        </article>
+        <article class="task-article">
+            <div class="info-holder">
+                <div class="task-info">
+                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Praesentium corporis expedita eligendi dolores
+                        fuga. Unde ab
+                        fugiat distinctio. Doloremque, laudantium?</p>
+                </div>
+                <div class="task-info">
+                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. At corporis fuga voluptates veniam
+                        accusamus laboriosam tempore reprehenderit voluptatem, quas labore.</p>
+                </div>
+                <div class="task-info short-info">
+                    <p class="priority-text medium-priority">Medium</p>
+                </div>
+                <div class="task-info short-info">
+                    <p>Due by deadline</p>
+                </div>
+                <div class="task-info short-info">
+                    <p>Approximately taking ... hours</p>
+                </div>
+            </div>
+            <div class="button-holder">
+                <button id="sync-task-btn" class="ammend-task-btn">Sync</button>
+                <button id="edit-task-btn" class="ammend-task-btn">Edit</button>
+                <button id="delete-task-btn" class="ammend-task-btn delete">Delete</button>
+            </div>
+        </article>
+        <article class="task-article">
+            <div class="info-holder">
+                <div class="task-info">
+                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Praesentium corporis expedita eligendi dolores
+                        fuga. Unde ab
+                        fugiat distinctio. Doloremque, laudantium?</p>
+                </div>
+                <div class="task-info">
+                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. At corporis fuga voluptates veniam
+                        accusamus laboriosam tempore reprehenderit voluptatem, quas labore.</p>
+                </div>
+                <div class="task-info short-info">
+                    <p class="priority-text low-priority">Low</p>
+                </div>
+                <div class="task-info short-info">
+                    <p>Due by deadline</p>
+                </div>
+                <div class="task-info short-info">
+                    <p>Approximately taking ... hours</p>
+                </div>
+            </div>
+            <div class="button-holder">
+                <button id="sync-task-btn" class="ammend-task-btn">Sync</button>
+                <button id="edit-task-btn" class="ammend-task-btn">Edit</button>
+                <button id="delete-task-btn" class="ammend-task-btn delete">Delete</button>
+            </div>
+        </article>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
