@@ -18,40 +18,45 @@ SERVER_PORT = process.env.SERVER_PORT
 
 // Save tasks to database
 
-// Initialize SQLite database (creates 'schedulite.db' if it doesn't exist)
-const db = new sqlite3.Database('./schedulite.db', (err) => {
+// Initialize SQLite database (uses in-memory DB during tests, otherwise 'schedulite.db')
+const dbPath = process.env.NODE_ENV === "test" ? ":memory:" : "./schedulite.db";
+const db = new sqlite3.Database(dbPath, (err) => {
     if (err) console.error(err.message);
-    console.log('Connected to the SQLite database.');
+    if (process.env.NODE_ENV !== "test") {
+        console.log('Connected to the SQLite database.');
+    }
 });
 
 // Build the schema
-db.run(`CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT,
-    priority TEXT,
-    deadline TEXT,
-    start_time TEXT,
-    duration TEXT,
-    colour TEXT,
-    google_event_id TEXT 
-)`, () => {
-    // Ensure existing databases have start_time and colour columns
-    db.run(`ALTER TABLE tasks ADD COLUMN start_time TEXT`, () => {});
-    db.run(`ALTER TABLE tasks ADD COLUMN colour TEXT`, () => {});
-});
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        priority TEXT,
+        deadline TEXT,
+        start_time TEXT,
+        duration TEXT,
+        colour TEXT,
+        google_event_id TEXT 
+    )`, () => {
+        // Ensure existing databases have start_time and colour columns
+        db.run(`ALTER TABLE tasks ADD COLUMN start_time TEXT`, () => {});
+        db.run(`ALTER TABLE tasks ADD COLUMN colour TEXT`, () => {});
+    });
 
-// Table to store encrypted Google OAuth tokens (single-row store, id = 1)
-db.run(`CREATE TABLE IF NOT EXISTS google_tokens (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    encrypted_tokens TEXT NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)`, (err) => {
-    if (err) {
-        console.error("Error creating google_tokens table:", err.message);
-    } else {
-        loadSavedTokensFromDb();
-    }
+    // Table to store encrypted Google OAuth tokens (single-row store, id = 1)
+    db.run(`CREATE TABLE IF NOT EXISTS google_tokens (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        encrypted_tokens TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+        if (err) {
+            console.error("Error creating google_tokens table:", err.message);
+        } else {
+            loadSavedTokensFromDb();
+        }
+    });
 });
 
 // AES-256-GCM helpers for encrypting tokens at rest in SQLite
@@ -455,8 +460,20 @@ app.get('/api/get-tasks', (req, res) => {
     });
 });
 
-// Open the server
-app.listen(SERVER_PORT, function(){
-    console.log(`Running server on: localhost:${SERVER_PORT}`)
-})
+// Open the server when run directly
+if (require.main === module) {
+    app.listen(SERVER_PORT, function(){
+        console.log(`Running server on: localhost:${SERVER_PORT}`);
+    });
+}
+
+module.exports = {
+    app,
+    db,
+    encryptTokens,
+    decryptTokens,
+    getGoogleCalendarColorId,
+    buildCalendarEventResource,
+    saveTokensToDb
+};
 
