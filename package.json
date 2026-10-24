@@ -7,6 +7,9 @@
     "sqlite3": "^6.0.1"
   },
   "scripts": {
-    "start" : "node server/server.js"
+    "start": "node server/server.js"
+  },
+  "allowScripts": {
+    "sqlite3@6.0.1": true
   }
 }
