@@ -51,6 +51,29 @@ function getPriorityWeight(priority) {
     return 1;
 }
 
+function formatTimeWindow(startTime, durationHours) {
+    if (!startTime || !/^\d{2}:\d{2}$/.test(startTime)) {
+        return "--:--";
+    }
+    const [hoursStr, minsStr] = startTime.split(":");
+    const startTotalMins = parseInt(hoursStr, 10) * 60 + parseInt(minsStr, 10);
+    const durMins = Math.round((parseFloat(durationHours) || 0) * 60);
+    if (durMins <= 0) {
+        return startTime;
+    }
+    const endTotalMins = (startTotalMins + durMins) % (24 * 60);
+    const endHours = String(Math.floor(endTotalMins / 60)).padStart(2, "0");
+    const endMins = String(endTotalMins % 60).padStart(2, "0");
+    return `${startTime} – ${endHours}:${endMins}`;
+}
+
+function getTaskTimestamp(data) {
+    if (!data.deadline) return Number.POSITIVE_INFINITY;
+    const timePart = data.start_time && /^\d{2}:\d{2}$/.test(data.start_time) ? data.start_time : "23:59";
+    const parsed = Date.parse(`${data.deadline}T${timePart}:00`);
+    return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+}
+
 function sortScheduledTasks() {
     if (!taskHolderDiv) return;
 
@@ -61,14 +84,10 @@ function sortScheduledTasks() {
         const dataA = extractTaskData(articleA);
         const dataB = extractTaskData(articleB);
 
-        const timeA = dataA.deadline && !Number.isNaN(Date.parse(dataA.deadline))
-            ? Date.parse(dataA.deadline)
-            : Number.POSITIVE_INFINITY;
-        const timeB = dataB.deadline && !Number.isNaN(Date.parse(dataB.deadline))
-            ? Date.parse(dataB.deadline)
-            : Number.POSITIVE_INFINITY;
+        const timeA = getTaskTimestamp(dataA);
+        const timeB = getTaskTimestamp(dataB);
 
-        // 1. Primary sort: Earliest deadline at the top
+        // 1. Primary sort: Earliest deadline + start time at the top
         if (timeA !== timeB) {
             return timeA - timeB;
         }
@@ -97,25 +116,44 @@ function extractTaskData(article) {
     const dateMatch = rawDeadlineText.match(/\d{4}-\d{2}-\d{2}/);
     const deadline = article.dataset.deadline ?? (dateMatch ? dateMatch[0] : "");
 
-    const rawDurationText = infoParagraphs[4]?.textContent.replace(/\s+/g, " ").trim() || "";
+    const start_time = article.dataset.startTime ?? "09:00";
+
+    const rawDurationText = infoParagraphs[5]?.textContent.replace(/\s+/g, " ").trim() || "";
     const durationMatch = rawDurationText.match(/(\d+(?:\.\d+)?)/);
     const duration = article.dataset.duration ?? (durationMatch ? durationMatch[1] : "");
 
-    return { title, description, priority, deadline, duration };
+    const colour = article.dataset.colour || "#4285f4";
+
+    return { title, description, priority, deadline, start_time, duration, colour };
 }
 
 function renderTaskInfoView(article, data) {
     if (data.id !== undefined) {
         article.dataset.taskId = data.id;
     }
+    const colour = data.colour || "#4285f4";
+    const startTime = data.start_time || "09:00";
+
     article.dataset.title = data.title;
     article.dataset.description = data.description;
     article.dataset.priority = data.priority;
     article.dataset.deadline = data.deadline;
+    article.dataset.startTime = startTime;
     article.dataset.duration = data.duration;
+    article.dataset.colour = colour;
+
+    const infoHolder = article.querySelector(".info-holder");
+    if (!infoHolder) return;
+    infoHolder.style.setProperty("--task-custom-colour", colour);
+
+    while (infoHolder.children.length < 7) {
+        const extraCell = document.createElement("div");
+        extraCell.className = "task-info short-info";
+        infoHolder.appendChild(extraCell);
+    }
 
     const infoCells = article.querySelectorAll(".info-holder .task-info");
-    if (infoCells.length < 5) return;
+    if (infoCells.length < 7) return;
 
     infoCells[0].innerHTML = "";
     const titleP = document.createElement("p");
@@ -139,9 +177,21 @@ function renderTaskInfoView(article, data) {
     infoCells[3].appendChild(deadlineP);
 
     infoCells[4].innerHTML = "";
+    const timeP = document.createElement("p");
+    timeP.textContent = formatTimeWindow(startTime, data.duration);
+    infoCells[4].appendChild(timeP);
+
+    infoCells[5].innerHTML = "";
     const durationP = document.createElement("p");
     durationP.textContent = `${data.duration || "..."} hours`;
-    infoCells[4].appendChild(durationP);
+    infoCells[5].appendChild(durationP);
+
+    infoCells[6].innerHTML = "";
+    const colourSwatch = document.createElement("span");
+    colourSwatch.className = "task-colour-badge";
+    colourSwatch.style.backgroundColor = colour;
+    colourSwatch.title = `Task colour: ${colour}`;
+    infoCells[6].appendChild(colourSwatch);
 }
 
 function createFieldWrapper(labelText, inputElement) {
@@ -164,8 +214,17 @@ function enterTaskEditMode(article) {
     article._originalTaskData = { ...currentData };
     article.classList.add("is-editing");
 
+    // Ensure infoHolder has all 7 cells before building edit inputs
+    const infoHolder = article.querySelector(".info-holder");
+    if (!infoHolder) return;
+    while (infoHolder.children.length < 7) {
+        const extraCell = document.createElement("div");
+        extraCell.className = "task-info short-info";
+        infoHolder.appendChild(extraCell);
+    }
+
     const infoCells = article.querySelectorAll(".info-holder .task-info");
-    if (infoCells.length < 5) return;
+    if (infoCells.length < 7) return;
 
     // 1. Title input
     const titleInput = document.createElement("input");
@@ -215,7 +274,16 @@ function enterTaskEditMode(article) {
     infoCells[3].innerHTML = "";
     infoCells[3].appendChild(createFieldWrapper("Deadline", deadlineInput));
 
-    // 5. Duration input
+    // 5. Start time input
+    const startTimeInput = document.createElement("input");
+    startTimeInput.type = "time";
+    startTimeInput.className = "edit-task-input";
+    startTimeInput.dataset.editField = "start_time";
+    startTimeInput.value = currentData.start_time || "09:00";
+    infoCells[4].innerHTML = "";
+    infoCells[4].appendChild(createFieldWrapper("Start Time", startTimeInput));
+
+    // 6. Duration input
     const durationInput = document.createElement("input");
     durationInput.type = "text";
     durationInput.inputMode = "decimal";
@@ -223,8 +291,20 @@ function enterTaskEditMode(article) {
     durationInput.dataset.editField = "duration";
     durationInput.value = currentData.duration;
     durationInput.placeholder = "Hrs";
-    infoCells[4].innerHTML = "";
-    infoCells[4].appendChild(createFieldWrapper("Duration (hrs)", durationInput));
+    infoCells[5].innerHTML = "";
+    infoCells[5].appendChild(createFieldWrapper("Duration (hrs)", durationInput));
+
+    // 7. Colour input
+    const colourInput = document.createElement("input");
+    colourInput.type = "color";
+    colourInput.className = "edit-task-input edit-colour-input";
+    colourInput.dataset.editField = "colour";
+    colourInput.value = currentData.colour || "#4285f4";
+    colourInput.addEventListener("input", () => {
+        infoHolder.style.setProperty("--task-custom-colour", colourInput.value);
+    });
+    infoCells[6].innerHTML = "";
+    infoCells[6].appendChild(createFieldWrapper("Colour", colourInput));
 
     // Swap Edit button to Save and add Cancel button
     const editBtn = article.querySelector("#edit-task-btn, .edit-task-btn");
@@ -282,25 +362,31 @@ async function saveTaskEdits(article) {
     const descInp = article.querySelector('[data-edit-field="description"]');
     const priorityInp = article.querySelector('[data-edit-field="priority"]');
     const deadlineInp = article.querySelector('[data-edit-field="deadline"]');
+    const startTimeInp = article.querySelector('[data-edit-field="start_time"]');
     const durationInp = article.querySelector('[data-edit-field="duration"]');
+    const colourInp = article.querySelector('[data-edit-field="colour"]');
 
     const title = titleInp?.value.trim() || "";
     const description = descInp?.value.trim() || "";
     const priority = priorityInp?.value || "Low";
     const deadline = deadlineInp?.value.trim() || "";
+    const start_time = startTimeInp?.value.trim() || "";
     const duration = durationInp?.value.trim() || "";
+    const colour = colourInp?.value.trim() || "#4285f4";
 
     const isTitleValid = title.length > 0;
     const isDescValid = description.length > 0;
     const isDeadlineValid = deadline.length > 0 && !Number.isNaN(Date.parse(deadline));
+    const isStartTimeValid = /^\d{2}:\d{2}$/.test(start_time);
     const isDurationValid = duration.length > 0 && !Number.isNaN(Number(duration)) && Number(duration) > 0;
 
     titleInp?.classList.toggle("field-error", !isTitleValid);
     descInp?.classList.toggle("field-error", !isDescValid);
     deadlineInp?.classList.toggle("field-error", !isDeadlineValid);
+    startTimeInp?.classList.toggle("field-error", !isStartTimeValid);
     durationInp?.classList.toggle("field-error", !isDurationValid);
 
-    if (!isTitleValid || !isDescValid || !isDeadlineValid || !isDurationValid) {
+    if (!isTitleValid || !isDescValid || !isDeadlineValid || !isStartTimeValid || !isDurationValid) {
         const saveBtn = article.querySelector(".save-btn");
         if (saveBtn) {
             saveBtn.classList.remove("shake-error");
@@ -315,7 +401,9 @@ async function saveTaskEdits(article) {
         description,
         priority,
         deadline,
-        duration
+        start_time,
+        duration,
+        colour
     };
 
     const taskId = article.dataset.taskId;
@@ -348,6 +436,30 @@ async function deleteTaskFromServer(taskId) {
     return result;
 }
 
+async function completeTaskOnServer(taskId) {
+    const response = await fetch(`/api/complete-task/${encodeURIComponent(taskId)}`, {
+        method: "DELETE"
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.error || result.message || "Failed to complete task");
+    }
+    return result;
+}
+
+async function handleCompleteTask(article) {
+    const taskId = article.dataset.taskId;
+    if (taskId) {
+        try {
+            await completeTaskOnServer(taskId);
+        } catch (error) {
+            console.error("Error completing task on server:", error);
+        }
+    }
+    article.remove();
+}
+
 async function handleDeleteTask(article) {
     const taskId = article.dataset.taskId;
     if (taskId) {
@@ -375,6 +487,8 @@ if (taskHolderDiv) {
                 }
             } else if (button.classList.contains("cancel-btn")) {
                 cancelTaskEdits(article);
+            } else if (button.id === "complete-task-btn" || button.classList.contains("complete")) {
+                handleCompleteTask(article);
             } else if (button.id === "delete-task-btn" || button.classList.contains("delete")) {
                 handleDeleteTask(article);
             }
@@ -415,7 +529,9 @@ const new_task_title_input = document.getElementById("task-title-inp");
 const new_task_description_input = document.getElementById("task-description-inp");
 const new_task_priority_input = document.getElementById("task-priority-inp");
 const new_task_deadline_input = document.getElementById("task-deadline-inp");
+const new_task_starttime_input = document.getElementById("task-starttime-inp");
 const new_task_duration_input = document.getElementById("task-duration-inp");
+const new_task_colour_input = document.getElementById("task-colour-inp");
 const create_task_btn = document.getElementById("create-task-btn");
 
 const newTaskInputs = [
@@ -423,7 +539,9 @@ const newTaskInputs = [
     new_task_description_input,
     new_task_priority_input,
     new_task_deadline_input,
-    new_task_duration_input
+    new_task_starttime_input,
+    new_task_duration_input,
+    new_task_colour_input
 ].filter(Boolean);
 
 function getNewTaskValidation() {
@@ -431,30 +549,38 @@ function getNewTaskValidation() {
     const description = new_task_description_input?.value.trim() || "";
     const priority = new_task_priority_input?.value || "";
     const deadline = new_task_deadline_input?.value.trim() || "";
+    const start_time = new_task_starttime_input?.value.trim() || "";
     const duration = new_task_duration_input?.value.trim() || "";
+    const colour = new_task_colour_input?.value.trim() || "#4285f4";
 
     const validTitle = title.length > 0;
     const validDescription = description.length > 0;
     const validPriority = ["Low", "Medium", "High"].includes(priority);
     const validDeadline = deadline.length > 0 && !Number.isNaN(Date.parse(deadline));
+    const validStartTime = /^\d{2}:\d{2}$/.test(start_time);
     const durationNum = Number(duration);
     const validDuration = duration.length > 0 && !Number.isNaN(durationNum) && durationNum > 0;
+    const validColour = /^#[0-9A-Fa-f]{6}$/.test(colour);
 
     return {
-        isValid: validTitle && validDescription && validPriority && validDeadline && validDuration,
+        isValid: validTitle && validDescription && validPriority && validDeadline && validStartTime && validDuration && validColour,
         checks: {
             title: validTitle,
             description: validDescription,
             priority: validPriority,
             deadline: validDeadline,
-            duration: validDuration
+            start_time: validStartTime,
+            duration: validDuration,
+            colour: validColour
         },
         values: {
             title,
             description,
             priority,
             deadline,
-            duration
+            start_time,
+            duration,
+            colour
         }
     };
 }
@@ -490,7 +616,7 @@ function createTaskArticleElement(data) {
     const infoHolder = document.createElement("div");
     infoHolder.className = "info-holder";
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 7; i++) {
         const taskInfo = document.createElement("div");
         taskInfo.className = i >= 2 ? "task-info short-info" : "task-info";
         infoHolder.appendChild(taskInfo);
@@ -498,6 +624,11 @@ function createTaskArticleElement(data) {
 
     const buttonHolder = document.createElement("div");
     buttonHolder.className = "button-holder";
+
+    const completeBtn = document.createElement("button");
+    completeBtn.id = "complete-task-btn";
+    completeBtn.className = "ammend-task-btn complete";
+    completeBtn.textContent = "Complete";
 
     const editBtn = document.createElement("button");
     editBtn.id = "edit-task-btn";
@@ -509,6 +640,7 @@ function createTaskArticleElement(data) {
     deleteBtn.className = "ammend-task-btn delete";
     deleteBtn.textContent = "Delete";
 
+    buttonHolder.appendChild(completeBtn);
     buttonHolder.appendChild(editBtn);
     buttonHolder.appendChild(deleteBtn);
 
@@ -557,7 +689,9 @@ async function loadTasksFromServer() {
                 description: task.description || "",
                 priority: task.priority || "Low",
                 deadline: task.deadline || "",
-                duration: task.duration || ""
+                start_time: task.start_time || "09:00",
+                duration: task.duration || "",
+                colour: task.colour || "#4285f4"
             });
             taskHolderDiv.appendChild(article);
         });
@@ -576,7 +710,9 @@ async function handleCreateTask() {
         new_task_description_input?.classList.toggle("field-error", !checks.description);
         new_task_priority_input?.classList.toggle("field-error", !checks.priority);
         new_task_deadline_input?.classList.toggle("field-error", !checks.deadline);
+        new_task_starttime_input?.classList.toggle("field-error", !checks.start_time);
         new_task_duration_input?.classList.toggle("field-error", !checks.duration);
+        new_task_colour_input?.classList.toggle("field-error", !checks.colour);
 
         if (create_task_btn) {
             create_task_btn.classList.remove("shake-error");
@@ -608,7 +744,9 @@ async function handleCreateTask() {
     if (new_task_description_input) new_task_description_input.value = "";
     if (new_task_priority_input) new_task_priority_input.value = "Low";
     if (new_task_deadline_input) new_task_deadline_input.value = "";
+    if (new_task_starttime_input) new_task_starttime_input.value = "";
     if (new_task_duration_input) new_task_duration_input.value = "";
+    if (new_task_colour_input) new_task_colour_input.value = "#4285f4";
 
     newTaskInputs.forEach((inputEl) => inputEl.classList.remove("field-error"));
     updateScheduleButtonState();

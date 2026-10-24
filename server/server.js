@@ -31,9 +31,15 @@ db.run(`CREATE TABLE IF NOT EXISTS tasks (
     description TEXT,
     priority TEXT,
     deadline TEXT,
+    start_time TEXT,
     duration TEXT,
+    colour TEXT,
     google_event_id TEXT 
-)`);
+)`, () => {
+    // Ensure existing databases have start_time and colour columns
+    db.run(`ALTER TABLE tasks ADD COLUMN start_time TEXT`, () => {});
+    db.run(`ALTER TABLE tasks ADD COLUMN colour TEXT`, () => {});
+});
 
 // Table to store encrypted Google OAuth tokens (single-row store, id = 1)
 db.run(`CREATE TABLE IF NOT EXISTS google_tokens (
@@ -134,23 +140,67 @@ oauth2Client.on("tokens", (tokens) => {
 const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 const syncingTaskIds = new Set();
 
-function getGoogleCalendarColorId(priority) {
-    const normalized = (priority || "Low").toLowerCase();
-    if (normalized === "high") return "11";   // Tomato Red
-    if (normalized === "medium") return "5";  // Banana Yellow
-    return "10";                              // Basil Green
+// Official Google Calendar event palette (colorId "1" to "11")
+const GOOGLE_CALENDAR_COLORS = [
+    { id: "1", hex: "#7986cb" }, // Lavender
+    { id: "2", hex: "#33b679" }, // Sage
+    { id: "3", hex: "#8e24aa" }, // Grape
+    { id: "4", hex: "#e67c73" }, // Flamingo
+    { id: "5", hex: "#f6bf26" }, // Banana
+    { id: "6", hex: "#f4511e" }, // Tangerine
+    { id: "7", hex: "#039be5" }, // Peacock
+    { id: "8", hex: "#616161" }, // Graphite
+    { id: "9", hex: "#3f51b5" }, // Blueberry
+    { id: "10", hex: "#0b8043" }, // Basil
+    { id: "11", hex: "#d50000" }  // Tomato
+];
+
+function hexToRgb(hex) {
+    const clean = (hex || "").replace("#", "");
+    if (!/^[0-9A-Fa-f]{6}$/.test(clean)) return null;
+    return {
+        r: parseInt(clean.slice(0, 2), 16),
+        g: parseInt(clean.slice(2, 4), 16),
+        b: parseInt(clean.slice(4, 6), 16)
+    };
+}
+
+function getGoogleCalendarColorId(colourHex, fallbackPriority) {
+    const targetRgb = hexToRgb(colourHex);
+    if (targetRgb) {
+        let bestId = "7";
+        let minDistance = Number.POSITIVE_INFINITY;
+        for (const palette of GOOGLE_CALENDAR_COLORS) {
+            const rgb = hexToRgb(palette.hex);
+            const dist =
+                (targetRgb.r - rgb.r) ** 2 +
+                (targetRgb.g - rgb.g) ** 2 +
+                (targetRgb.b - rgb.b) ** 2;
+            if (dist < minDistance) {
+                minDistance = dist;
+                bestId = palette.id;
+            }
+        }
+        return bestId;
+    }
+
+    const normalized = (fallbackPriority || "Low").toLowerCase();
+    if (normalized === "high") return "11";
+    if (normalized === "medium") return "5";
+    return "10";
 }
 
 function buildCalendarEventResource(task) {
     const durationHours = Math.max(0.25, parseFloat(task.duration) || 1);
-    const startDate = new Date(`${task.deadline}T09:00:00`);
+    const startTimeStr = task.start_time && /^\d{2}:\d{2}$/.test(task.start_time) ? task.start_time : "09:00";
+    const startDate = new Date(`${task.deadline}T${startTimeStr}:00`);
     const validStart = !Number.isNaN(startDate.getTime()) ? startDate : new Date();
     const endDate = new Date(validStart.getTime() + durationHours * 60 * 60 * 1000);
 
     return {
         summary: task.title,
-        description: `${task.description || ""}\n\nPriority: ${task.priority || "Low"}\nDuration: ${task.duration} hours`.trim(),
-        colorId: getGoogleCalendarColorId(task.priority),
+        description: `${task.description || ""}\n\nPriority: ${task.priority || "Low"}\nStart Time: ${startTimeStr}\nDuration: ${task.duration} hours`.trim(),
+        colorId: getGoogleCalendarColorId(task.colour, task.priority),
         start: {
             dateTime: validStart.toISOString()
         },
@@ -307,12 +357,12 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
 app.post('/api/save-task', (req, res) => {
     // Get all of the task values
-    const { title, description, priority, deadline, duration } = req.body;
+    const { title, description, priority, deadline, start_time, duration, colour } = req.body;
     
-    const sql = `INSERT INTO tasks (title, description, priority, deadline, duration) 
-                 VALUES (?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO tasks (title, description, priority, deadline, start_time, duration, colour) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`;
                  
-    db.run(sql, [title, description, priority, deadline, duration], function(err) {
+    db.run(sql, [title, description, priority, deadline, start_time, duration, colour], function(err) {
         if (err) return res.status(400).json({ error: err.message });
         
         const newTaskId = this.lastID;
@@ -330,14 +380,14 @@ app.post('/api/save-task', (req, res) => {
 
 app.put('/api/update-task/:id', (req, res) => {
     const taskId = req.params.id; // Extract the task ID from the URL
-    const { title, description, priority, deadline, duration } = req.body; // Extract updated data
+    const { title, description, priority, deadline, start_time, duration, colour } = req.body; // Extract updated data
     
     // The UPDATE statement overwrites the existing row matching the ID
     const sql = `UPDATE tasks 
-                 SET title = ?, description = ?, priority = ?, deadline = ?, duration = ?
+                 SET title = ?, description = ?, priority = ?, deadline = ?, start_time = ?, duration = ?, colour = ?
                  WHERE id = ?`;
                  
-    db.run(sql, [title, description, priority, deadline, duration, taskId], function(err) {
+    db.run(sql, [title, description, priority, deadline, start_time, duration, colour, taskId], function(err) {
         if (err) return res.status(400).json({ error: err.message });
         
         if (this.changes === 0) {
@@ -373,6 +423,23 @@ app.delete('/api/delete-task/:id', (req, res) => {
 
             res.json({ message: "Task successfully deleted" });
         });
+    });
+});
+
+app.delete('/api/complete-task/:id', (req, res) => {
+    const taskId = req.params.id;
+
+    // Remove the completed task from SQLite without deleting the Google Calendar event
+    const sql = `DELETE FROM tasks WHERE id = ?`;
+
+    db.run(sql, [taskId], function(err) {
+        if (err) return res.status(400).json({ error: err.message });
+
+        if (this.changes === 0) {
+            return res.status(404).json({ message: "Task not found" });
+        }
+
+        res.json({ message: "Task marked as complete and removed from database" });
     });
 });
 
