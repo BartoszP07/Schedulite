@@ -9,8 +9,11 @@
 <body>
     <h1 id="main-title">Schedulite</h1>
 
+    <div id="mobile-modal-backdrop"></div>
+
     <div id="create-task-div" class="custom-fieldset">
         <span class="custom-legend">New Task</span>
+        <button type="button" id="close-create-task-btn" aria-label="Close new task menu">&times;</button>
         <div id="inputs-holder">
             <div class="input-label-holder">
                 <label for="task-title-inp" class="input-label">Title</label>
@@ -126,6 +129,10 @@
         </article>
     </div>
 
+    <button type="button" id="open-create-task-btn" aria-label="Create new task">+ New Task</button>
+
     <script src="script.js"></script>
 </body>
+</html>
+
 </html>

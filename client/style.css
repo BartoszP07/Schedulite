@@ -6,121 +6,169 @@
     --text-colour: rgb(0, 0, 0);
     --accent-colour: rgb(0, 0, 0);
     --input-background-colour: rgb(255, 255, 255);
-    --input-font-size: 1.2rem;
+    --input-font-size: 1.05rem;
     --input-border-rad: 1rem;
     --section-background-colour: rgb(255, 255, 255);
     --border-width: 2px;
     --border-colour: rgb(0, 0, 0);
     --invalid-task-colour: rgb(150, 0, 0);
     --valid-task-colour: rgb(0, 150, 0);
-    --task-background-colour: rgb(200, 200, 200);
-    --high-priority-colour: rgb(200, 0, 0);
-    --medium-priority-colour: rgb(202, 101, 0);
-    --low-priority-colour: rgb(0, 200, 0);
+    --task-background-colour: rgb(225, 225, 225);
+    --high-priority-colour: rgb(255, 92, 92);
+    --medium-priority-colour: rgb(255, 170, 71);
+    --low-priority-colour: rgb(105, 224, 105);
     --delete-button-colour: rgb(255, 143, 143);
+    --shadow-offset: 3px 3px 0px var(--border-colour);
+    --shadow-offset-sm: 2px 2px 0px var(--border-colour);
 }
 
 /* Set a style for every element */
 
 *{
     color: var(--text-colour);
-    font-family: "Inter Tight";
+    font-family: "Inter Tight", sans-serif;
     font-weight: 400;
     font-style: italic;
     margin: 0px;
     padding: 0px;
     box-sizing: border-box;
-    flex-wrap: wrap;
 }
 
 /* Style for general elements */
 
 body{
     background-color: var(--background-colour);
-    margin: 2rem;
+    margin: 0 auto;
+    padding: 2rem;
+    max-width: 1400px;
+    min-height: 100vh;
+}
+
+#main-title{
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+    display: inline-block;
 }
 
 button{
-    padding: 0.5rem;
+    padding: 0.55rem 1.1rem;
     outline: none;
-    border: solid;
-    border-width: var(--border-width);
-    border-radius: 0.5rem;
+    border: var(--border-width) solid var(--border-colour);
+    border-radius: 0.65rem;
     background-color: var(--input-background-colour);
+    font-size: 1rem;
+    font-weight: 600;
+    box-shadow: var(--shadow-offset-sm);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease;
+    white-space: nowrap;
 }
 
 button:hover{
     cursor: pointer;
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0px var(--border-colour);
+}
+
+button:active{
+    transform: translate(1px, 1px);
+    box-shadow: 0px 0px 0px var(--border-colour);
 }
 
 
 /* Styling for the new task input elements */
 
-
-.input-label-holder{
-    display: flex;
-    align-items: start;
-    justify-content: center;
-    flex-direction: column;
-    flex: 1;
-}
-
-#create-task-div{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-direction: row;
-    gap: 1rem;
-    position: relative;
-    border: var(--border-width) solid var(--border-colour);
-    border-radius: 1rem;
-    padding: 10px;
-    margin-top: 0.5rem;
-    background-color: var(--section-background-colour);
-    width: 100%;
-}
-
 .custom-fieldset{
     position: relative;
     display: flex;
+    flex-wrap: wrap;
     border: var(--border-width) solid var(--border-colour);
     border-radius: 1rem;
-    padding: 10px;
-    margin-top: 0.5rem;
+    padding: 1.5rem 1.25rem 1.25rem 1.25rem;
+    margin-top: 1.5rem;
     background-color: var(--section-background-colour);
     width: 100%;
+    box-shadow: var(--shadow-offset);
 }
 
 .custom-legend{
     position: absolute;
-    top: -10px;
-    left: 10px;
+    top: -0.75rem;
+    left: 1rem;
     background-color: var(--section-background-colour);
-    padding: 0 5px;
+    padding: 0.1rem 0.65rem;
+    border: var(--border-width) solid var(--border-colour);
     border-radius: 1rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+}
+
+#create-task-div{
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+#inputs-holder{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.85rem 1rem;
+    flex: 1 1 42rem;
+    min-width: 0;
+}
+
+.input-label-holder{
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+    width: 100%;
+}
+
+.input-label{
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding-left: 0.35rem;
 }
 
 .task-input-text{
     background-color: var(--input-background-colour);
-    border: solid;
+    border: var(--border-width) solid var(--accent-colour);
     outline: none;
-    border-color: var(--accent-colour);
     border-radius: var(--input-border-rad);
-    border-width: var(--border-width);;
     font-size: var(--input-font-size);
-    padding-left: 0.2rem;
-    padding-right: 0.2rem;
+    padding: 0.45rem 0.75rem;
     width: 100%;
-    min-width: 15rem;
+    min-width: 0;
+    height: 2.5rem;
+    transition: box-shadow 0.15s ease, transform 0.12s ease;
 }
 
-#inputs-holder{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: row;
-    gap: 1rem;
-    width: 100%;
+.task-input-text:focus{
+    box-shadow: var(--shadow-offset-sm);
+    transform: translate(-1px, -1px);
+}
+
+#create-task-btn{
+    height: 2.5rem;
+    padding: 0 1.5rem;
+    border-radius: var(--input-border-rad);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* Mobile drawer controls (hidden on desktop) */
+#open-create-task-btn,
+#close-create-task-btn,
+#mobile-modal-backdrop {
+    display: none;
 }
 
 /* Styling classes for scheduling button */
@@ -136,6 +184,7 @@ button.valid-task-input{
 
 /* Styling for a created task */
 #task-holder-div{
+    flex-direction: column;
     gap: 1rem;
 }
 
@@ -145,45 +194,69 @@ button.valid-task-input{
     justify-content: center;
     flex-direction: column;
     width: 100%;
-    padding: 0.3rem;
-    border: solid;
+    padding: 0.65rem;
+    border: var(--border-width) solid var(--border-colour);
     border-radius: var(--input-border-rad);
-    border-color: var(--border-colour);
-    border-width: var(--border-width);
     background-color: var(--task-background-colour);
+    gap: 0.55rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.task-article:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-offset-sm);
+}
+
+.info-holder{
+    width: 100%;
+    min-height: 3.75rem;
+    display: grid;
+    align-items: center;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.8fr) minmax(5.5rem, 0.7fr) minmax(7rem, 0.9fr) minmax(8rem, 1fr);
+    gap: 0.75rem 1rem;
+    padding: 0.75rem 1rem;
+    border: var(--border-width) solid var(--border-colour);
+    border-radius: calc(var(--input-border-rad) - 0.2rem);
+    background-color: white;
 }
 
 .task-info {
     display: flex;
     align-items: center;
     width: 100%;
-    height: 100%;
+    min-width: 0;
     overflow: hidden;
-    
-    
     border: none;
-    border-width: var(--border-width);
-    border-radius: var(--input-border-rad);
-    /* background-color: white; */
+}
+
+.task-info:first-child p {
+    font-weight: 700;
 }
 
 .task-info p{
+    width: 100%;
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .short-info{
     justify-content: center;
+    text-align: center;
+}
+
+.short-info p {
+    width: auto;
+    max-width: 100%;
 }
 
 p.priority-text{
-    border: solid;
-    border-width: var(--border-width);
+    border: var(--border-width) solid var(--border-colour);
     border-radius: calc(var(--input-border-rad) / 2);
-    border-color: var(--border-colour);
-    padding: 0.1rem;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
+    padding: 0.15rem 0.75rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    box-shadow: 1px 1px 0px var(--border-colour);
 }
 
 p.high-priority{
@@ -198,37 +271,279 @@ p.low-priority{
     background-color: var(--low-priority-colour);
 }
 
-.info-holder{
+.button-holder{
+    display: flex;
     width: 100%;
-    height: 4rem;
-    max-height: 4rem;
-    display: grid;
     align-items: center;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 1rem;
-    padding: 1rem;
-    border: solid;
-    border-color: var(--border-colour);
-    border-width: var(--border-width);
-    border-radius: var(--input-border-rad);
-    background-color: white;
-    margin-bottom: 0.5rem;
+    justify-content: center;
+    gap: 0.6rem;
 }
 
 .ammend-task-btn{
-    padding: 0.3rem;
-    padding-left: 0.6rem;
-    padding-right: 0.6rem;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.95rem;
 }
 
 .ammend-task-btn.delete{
     background-color: var(--delete-button-colour);
 }
 
-.button-holder{
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
+/* Tablet responsiveness */
+@media (max-width: 960px) {
+    body {
+        padding: 1.5rem;
+    }
+
+    #create-task-div {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #inputs-holder {
+        flex: 1 1 auto;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #inputs-holder .input-label-holder:first-child {
+        grid-column: 1 / -1;
+    }
+
+    #create-task-btn {
+        width: 100%;
+        height: 2.75rem;
+    }
+
+    .info-holder {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        padding: 0.85rem 1rem;
+    }
+
+    .task-info:nth-child(1) {
+        grid-column: 1 / -1;
+        font-size: 1.05rem;
+    }
+
+    .task-info:nth-child(2) {
+        grid-column: 1 / -1;
+        padding-bottom: 0.4rem;
+        border-bottom: 1.5px dashed rgba(0, 0, 0, 0.25);
+    }
+
+    .task-info:nth-child(1) p,
+    .task-info:nth-child(2) p {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
 }
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    body {
+        padding: 1rem 0.85rem 5.5rem 0.85rem;
+    }
+
+    body.mobile-sheet-open {
+        overflow: hidden;
+    }
+
+    #main-title {
+        display: block;
+        text-align: center;
+        margin-bottom: 1.25rem;
+    }
+
+    .custom-fieldset {
+        padding: 1.35rem 0.85rem 0.95rem 0.85rem;
+        margin-top: 0.75rem;
+        border-radius: 0.85rem;
+    }
+
+    .custom-legend {
+        left: 0.85rem;
+        font-size: 0.9rem;
+    }
+
+    /* Backdrop overlay for the mobile New Task drawer */
+    #mobile-modal-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(2px);
+        z-index: 100;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.25s ease, visibility 0.25s ease;
+    }
+
+    body.mobile-sheet-open #mobile-modal-backdrop {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    /* Slide-up bottom sheet for #create-task-div on mobile */
+    #create-task-div {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin-top: 0;
+        padding: 2rem 1.15rem 1.35rem 1.15rem;
+        border: none;
+        border-top: var(--border-width) solid var(--border-colour);
+        border-radius: 1.35rem 1.35rem 0 0;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.18);
+        z-index: 101;
+        max-height: 90vh;
+        overflow-y: auto;
+        transform: translateY(105%);
+        visibility: hidden;
+        pointer-events: none;
+        transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.28s ease;
+    }
+
+    /* Decorative pull handle at the top of the bottom sheet */
+    #create-task-div::before {
+        content: "";
+        position: absolute;
+        top: 0.55rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2.75rem;
+        height: 0.28rem;
+        background-color: var(--border-colour);
+        border-radius: 1rem;
+        opacity: 0.25;
+    }
+
+    body.mobile-sheet-open #create-task-div {
+        transform: translateY(0);
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    #create-task-div .custom-legend {
+        position: static;
+        align-self: flex-start;
+        font-size: 1.05rem;
+        padding: 0.15rem 0.75rem;
+        box-shadow: var(--shadow-offset-sm);
+        margin-bottom: 0.25rem;
+    }
+
+    #close-create-task-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 1.15rem;
+        right: 1.15rem;
+        width: 2.1rem;
+        height: 2.1rem;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 1.25rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 1;
+        background-color: var(--delete-button-colour);
+    }
+
+    #inputs-holder {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        width: 100%;
+    }
+
+    /* Title, Description, and Deadline span full width; Priority & Duration sit side-by-side */
+    #inputs-holder .input-label-holder:nth-child(1),
+    #inputs-holder .input-label-holder:nth-child(2),
+    #inputs-holder .input-label-holder:nth-child(4) {
+        grid-column: 1 / -1;
+    }
+
+    .task-input-text {
+        height: 2.65rem;
+        font-size: 1rem;
+    }
+
+    #create-task-btn {
+        height: 2.85rem;
+        font-size: 1.05rem;
+        margin-top: 0.25rem;
+        width: 100%;
+    }
+
+    /* Floating Action Button (FAB) to open the New Task drawer */
+    #open-create-task-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        bottom: 1.25rem;
+        right: 1.15rem;
+        z-index: 90;
+        padding: 0.75rem 1.35rem;
+        font-size: 1.05rem;
+        font-weight: 800;
+        border-radius: 2rem;
+        background-color: var(--background-colour);
+        border: var(--border-width) solid var(--border-colour);
+        box-shadow: 4px 4px 0px var(--border-colour);
+    }
+
+    #open-create-task-btn:active {
+        transform: translate(2px, 2px);
+        box-shadow: 1px 1px 0px var(--border-colour);
+    }
+
+    .task-article {
+        padding: 0.55rem;
+        gap: 0.5rem;
+    }
+
+    .info-holder {
+        grid-template-columns: auto 1fr;
+        gap: 0.55rem 0.75rem;
+        padding: 0.8rem;
+    }
+
+    .task-info:nth-child(1),
+    .task-info:nth-child(2) {
+        grid-column: 1 / -1;
+    }
+
+    .task-info:nth-child(3) {
+        justify-content: flex-start;
+    }
+
+    .task-info:nth-child(4) {
+        justify-content: flex-end;
+        text-align: right;
+        font-size: 0.9rem;
+    }
+
+    .task-info:nth-child(5) {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+        text-align: left;
+        font-size: 0.9rem;
+        opacity: 0.85;
+    }
+
+    .button-holder {
+        gap: 0.45rem;
+    }
+
+    .ammend-task-btn {
+        flex: 1;
+        padding: 0.5rem 0.4rem;
+        font-size: 0.95rem;
+        text-align: center;
+    }
+}
+
