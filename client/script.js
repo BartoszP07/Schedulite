@@ -869,7 +869,11 @@ if (create_task_btn) {
 // Initialize Schedule button validation colour and load saved tasks from server
 updateScheduleButtonState();
 updateTaskSummaryAndFilters();
-loadTasksFromServer();
+
+const isTestEnv = typeof process !== "undefined" && process.env && process.env.NODE_ENV === "test";
+if (!isTestEnv) {
+    loadTasksFromServer();
+}
 
 // Google Calendar connection status check
 const googleCalendarBtn = document.getElementById("google-calendar-btn");
@@ -909,6 +913,33 @@ async function checkGoogleConnectionStatus() {
     }
 }
 
-checkGoogleConnectionStatus();
+if (!isTestEnv) {
+    checkGoogleConnectionStatus();
+}
+
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+        openMobileTaskSheet,
+        closeMobileTaskSheet,
+        getLocalDateString,
+        getDeadlineBadgeInfo,
+        updateTaskSummaryAndFilters,
+        getPriorityClass,
+        getPriorityWeight,
+        formatTimeWindow,
+        getTaskTimestamp,
+        sortScheduledTasks,
+        extractTaskData,
+        renderTaskInfoView,
+        createTaskArticleElement,
+        enterTaskEditMode,
+        saveTaskEdits,
+        cancelTaskEdits,
+        getNewTaskValidation,
+        updateScheduleButtonState,
+        handleCreateTask,
+        setGoogleButtonConnected
+    };
+}
 
 
