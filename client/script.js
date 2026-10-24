@@ -105,6 +105,9 @@ function extractTaskData(article) {
 }
 
 function renderTaskInfoView(article, data) {
+    if (data.id !== undefined) {
+        article.dataset.taskId = data.id;
+    }
     article.dataset.title = data.title;
     article.dataset.description = data.description;
     article.dataset.priority = data.priority;
@@ -258,7 +261,23 @@ function exitTaskEditMode(article, dataToRender) {
     }
 }
 
-function saveTaskEdits(article) {
+async function updateTaskOnServer(taskId, taskData) {
+    const response = await fetch(`/api/update-task/${encodeURIComponent(taskId)}`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(taskData)
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.error || result.message || "Failed to update task");
+    }
+    return result;
+}
+
+async function saveTaskEdits(article) {
     const titleInp = article.querySelector('[data-edit-field="title"]');
     const descInp = article.querySelector('[data-edit-field="description"]');
     const priorityInp = article.querySelector('[data-edit-field="priority"]');
@@ -273,8 +292,8 @@ function saveTaskEdits(article) {
 
     const isTitleValid = title.length > 0;
     const isDescValid = description.length > 0;
-    const isDeadlineValid = deadline === "" || !Number.isNaN(Date.parse(deadline));
-    const isDurationValid = duration === "" || (!Number.isNaN(Number(duration)) && Number(duration) > 0);
+    const isDeadlineValid = deadline.length > 0 && !Number.isNaN(Date.parse(deadline));
+    const isDurationValid = duration.length > 0 && !Number.isNaN(Number(duration)) && Number(duration) > 0;
 
     titleInp?.classList.toggle("field-error", !isTitleValid);
     descInp?.classList.toggle("field-error", !isDescValid);
@@ -299,6 +318,15 @@ function saveTaskEdits(article) {
         duration
     };
 
+    const taskId = article.dataset.taskId;
+    if (taskId) {
+        try {
+            await updateTaskOnServer(taskId, updatedData);
+        } catch (error) {
+            console.error("Error updating task on server:", error);
+        }
+    }
+
     exitTaskEditMode(article, updatedData);
     sortScheduledTasks();
 }
@@ -306,6 +334,30 @@ function saveTaskEdits(article) {
 function cancelTaskEdits(article) {
     const originalData = article._originalTaskData || extractTaskData(article);
     exitTaskEditMode(article, originalData);
+}
+
+async function deleteTaskFromServer(taskId) {
+    const response = await fetch(`/api/delete-task/${encodeURIComponent(taskId)}`, {
+        method: "DELETE"
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.error || result.message || "Failed to delete task");
+    }
+    return result;
+}
+
+async function handleDeleteTask(article) {
+    const taskId = article.dataset.taskId;
+    if (taskId) {
+        try {
+            await deleteTaskFromServer(taskId);
+        } catch (error) {
+            console.error("Error deleting task on server:", error);
+        }
+    }
+    article.remove();
 }
 
 if (taskHolderDiv) {
@@ -324,7 +376,7 @@ if (taskHolderDiv) {
             } else if (button.classList.contains("cancel-btn")) {
                 cancelTaskEdits(article);
             } else if (button.id === "delete-task-btn" || button.classList.contains("delete")) {
-                article.remove();
+                handleDeleteTask(article);
             }
             return;
         }
@@ -467,7 +519,56 @@ function createTaskArticleElement(data) {
     return article;
 }
 
-function handleCreateTask() {
+async function saveTaskToServer(taskData) {
+    const response = await fetch("/api/save-task", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(taskData)
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.error || "Failed to save task");
+    }
+    return result;
+}
+
+async function loadTasksFromServer() {
+    if (!taskHolderDiv) return;
+
+    try {
+        const response = await fetch("/api/get-tasks");
+        if (!response.ok) {
+            throw new Error("Failed to fetch tasks");
+        }
+
+        const tasks = await response.json();
+        if (!Array.isArray(tasks)) return;
+
+        // Remove existing task articles before rendering fetched tasks
+        taskHolderDiv.querySelectorAll(".task-article").forEach((el) => el.remove());
+
+        tasks.forEach((task) => {
+            const article = createTaskArticleElement({
+                id: task.id,
+                title: task.title || "",
+                description: task.description || "",
+                priority: task.priority || "Low",
+                deadline: task.deadline || "",
+                duration: task.duration || ""
+            });
+            taskHolderDiv.appendChild(article);
+        });
+
+        sortScheduledTasks();
+    } catch (error) {
+        console.error("Error loading tasks from server:", error);
+    }
+}
+
+async function handleCreateTask() {
     const { isValid, checks, values } = getNewTaskValidation();
 
     if (!isValid) {
@@ -485,8 +586,19 @@ function handleCreateTask() {
         return;
     }
 
+    let createdTaskId;
+    try {
+        const result = await saveTaskToServer(values);
+        createdTaskId = result.taskId;
+    } catch (error) {
+        console.error("Error saving task to server:", error);
+    }
+
     if (taskHolderDiv) {
-        const newArticle = createTaskArticleElement(values);
+        const newArticle = createTaskArticleElement({
+            ...values,
+            id: createdTaskId
+        });
         taskHolderDiv.appendChild(newArticle);
         sortScheduledTasks();
     }
@@ -507,8 +619,8 @@ if (create_task_btn) {
     create_task_btn.addEventListener("click", handleCreateTask);
 }
 
-// Initialize Schedule button validation colour and sort order on load
+// Initialize Schedule button validation colour and load saved tasks from server
 updateScheduleButtonState();
-sortScheduledTasks();
+loadTasksFromServer();
 
 
