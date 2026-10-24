@@ -9,7 +9,7 @@
 <body>
     <header id="top-bar">
         <h1 id="main-title">Schedulite</h1>
-        <button type="button" id="google-calendar-btn">Connect Google Calendar</button>
+        <a href="/api/auth/google" id="google-calendar-btn">Connect Google Calendar</a>
     </header>
 
     <div id="mobile-modal-backdrop"></div>
@@ -39,8 +39,16 @@
                 <input type="date" id="task-deadline-inp" class="task-input-text">
             </div>
             <div class="input-label-holder">
+                <label for="task-starttime-inp" class="input-label">Start Time</label>
+                <input type="time" id="task-starttime-inp" class="task-input-text">
+            </div>
+            <div class="input-label-holder">
                 <label for="task-duration-inp" class="input-label">Duration (hrs)</label>
                 <input type="text" id="task-duration-inp" class="task-input-text">
+            </div>
+            <div class="input-label-holder">
+                <label for="task-colour-inp" class="input-label">Colour</label>
+                <input type="color" id="task-colour-inp" class="task-input-text task-colour-input" value="#4285f4">
             </div>
         </div>
 
