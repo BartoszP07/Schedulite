@@ -44,12 +44,65 @@ body{
     min-height: 100vh;
 }
 
+#top-bar{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    width: 100%;
+}
+
 #main-title{
     font-size: clamp(2rem, 4vw, 2.75rem);
     font-weight: 800;
     letter-spacing: -0.02em;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0;
     display: inline-block;
+}
+
+/* Google Calendar Connect Button */
+#google-calendar-btn{
+    position: relative;
+    padding: 0.6rem 1.35rem;
+    border-radius: 2rem;
+    border: var(--border-width) solid var(--border-colour);
+    background: linear-gradient(115deg, #4285F4 0%, #EA4335 34%, #FBBC05 68%, #34A853 100%);
+    background-size: 160% 160%;
+    background-position: 0% 50%;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 0.01em;
+    text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--shadow-offset);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-position 0.35s ease, background 0.25s ease, color 0.2s ease;
+}
+
+#google-calendar-btn:hover{
+    background-position: 100% 50%;
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0px var(--border-colour);
+}
+
+#google-calendar-btn:active{
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--border-colour);
+}
+
+/* Connected state: add class "connected" to #google-calendar-btn */
+#google-calendar-btn.connected{
+    background: var(--low-priority-colour);
+    color: var(--text-colour);
+    text-shadow: none;
+    box-shadow: var(--shadow-offset-sm);
+}
+
+#google-calendar-btn.connected::before{
+    content: "✓ ";
+    font-style: normal;
+    font-weight: 900;
 }
 
 button{
@@ -139,6 +192,7 @@ button:active{
 }
 
 .task-input-text{
+    display: block;
     background-color: var(--input-background-colour);
     border: var(--border-width) solid var(--accent-colour);
     outline: none;
@@ -146,9 +200,16 @@ button:active{
     font-size: var(--input-font-size);
     padding: 0.45rem 0.75rem;
     width: 100%;
+    max-width: 100%;
     min-width: 0;
     height: 2.5rem;
     transition: box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+input[type="date"].task-input-text {
+    -webkit-appearance: none;
+    appearance: none;
+    min-inline-size: 0;
 }
 
 .task-input-text:focus{
@@ -342,16 +403,36 @@ p.low-priority{
 @media (max-width: 768px) {
     body {
         padding: 1rem 0.85rem 5.5rem 0.85rem;
+        overflow-x: hidden;
     }
 
     body.mobile-sheet-open {
         overflow: hidden;
     }
 
+    #top-bar {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 0.5rem;
+        margin-bottom: 1.15rem;
+    }
+
     #main-title {
-        display: block;
-        text-align: center;
-        margin-bottom: 1.25rem;
+        font-size: clamp(1.65rem, 6vw, 2rem);
+        text-align: left;
+        margin-bottom: 0;
+    }
+
+    #google-calendar-btn {
+        width: auto;
+        max-width: none;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        box-shadow: var(--shadow-offset-sm);
+        flex-shrink: 0;
     }
 
     .custom-fieldset {
@@ -392,32 +473,19 @@ p.low-priority{
         right: 0;
         bottom: 0;
         margin-top: 0;
-        padding: 2rem 1.15rem 1.35rem 1.15rem;
+        padding: 1.25rem 1.15rem 1.35rem 1.15rem;
         border: none;
         border-top: var(--border-width) solid var(--border-colour);
         border-radius: 1.35rem 1.35rem 0 0;
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.18);
         z-index: 101;
         max-height: 90vh;
+        overflow-x: hidden;
         overflow-y: auto;
         transform: translateY(105%);
         visibility: hidden;
         pointer-events: none;
         transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.28s ease;
-    }
-
-    /* Decorative pull handle at the top of the bottom sheet */
-    #create-task-div::before {
-        content: "";
-        position: absolute;
-        top: 0.55rem;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 2.75rem;
-        height: 0.28rem;
-        background-color: var(--border-colour);
-        border-radius: 1rem;
-        opacity: 0.25;
     }
 
     body.mobile-sheet-open #create-task-div {
@@ -454,7 +522,7 @@ p.low-priority{
     }
 
     #inputs-holder {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.75rem;
         width: 100%;
     }
