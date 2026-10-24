@@ -58,6 +58,15 @@
 
     <div id="task-holder-div" class="custom-fieldset">
         <span class="custom-legend">Scheduled Tasks</span>
+        <span id="tasks-summary-badge" class="custom-legend summary-badge">0 tasks &middot; 0 hrs</span>
+        <div id="task-filter-bar">
+            <button type="button" class="filter-pill active-filter" data-filter="all">All</button>
+            <button type="button" class="filter-pill" data-filter="today">Today</button>
+            <button type="button" class="filter-pill filter-high" data-filter="High">High</button>
+            <button type="button" class="filter-pill filter-medium" data-filter="Medium">Medium</button>
+            <button type="button" class="filter-pill filter-low" data-filter="Low">Low</button>
+        </div>
+        <div id="empty-tasks-message">No tasks scheduled — you're all caught up!</div>
     </div>
 
     <button type="button" id="open-create-task-btn" aria-label="Create new task">+ New Task</button>

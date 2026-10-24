@@ -300,6 +300,86 @@ button.valid-task-input{
     gap: 1rem;
 }
 
+.summary-badge {
+    left: auto;
+    right: 1rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    background-color: var(--task-background-colour);
+}
+
+#task-filter-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+    padding-bottom: 0.25rem;
+}
+
+.filter-pill {
+    padding: 0.3rem 0.85rem;
+    border-radius: 2rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    background-color: var(--section-background-colour);
+    box-shadow: 1.5px 1.5px 0px var(--border-colour);
+}
+
+.filter-pill.active-filter {
+    background-color: var(--border-colour);
+    color: var(--background-colour);
+}
+
+.filter-pill.filter-high.active-filter {
+    background-color: var(--high-priority-colour);
+    color: var(--text-colour);
+}
+
+.filter-pill.filter-medium.active-filter {
+    background-color: var(--medium-priority-colour);
+    color: var(--text-colour);
+}
+
+.filter-pill.filter-low.active-filter {
+    background-color: var(--low-priority-colour);
+    color: var(--text-colour);
+}
+
+#empty-tasks-message {
+    width: 100%;
+    padding: 2rem 1rem;
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 600;
+    opacity: 0.65;
+    border: 2px dashed rgba(0, 0, 0, 0.25);
+    border-radius: var(--input-border-rad);
+}
+
+.deadline-badge {
+    display: inline-block;
+    padding: 0.1rem 0.55rem;
+    border: 1.5px solid var(--border-colour);
+    border-radius: 1rem;
+    font-weight: 700;
+    font-size: 0.82rem;
+    margin-right: 0.35rem;
+    box-shadow: 1px 1px 0px var(--border-colour);
+}
+
+.deadline-badge.overdue-badge {
+    background-color: var(--high-priority-colour);
+}
+
+.deadline-badge.today-badge {
+    background-color: var(--medium-priority-colour);
+}
+
+.deadline-badge.tomorrow-badge {
+    background-color: var(--low-priority-colour);
+}
+
 .task-article {
     display: flex;
     align-items: center;
@@ -704,6 +784,12 @@ input[type="time"].edit-task-input {
     .custom-legend {
         left: 0.85rem;
         font-size: 0.9rem;
+    }
+
+    .custom-legend.summary-badge {
+        left: auto;
+        right: 0.85rem;
+        font-size: 0.8rem;
     }
 
     /* Backdrop overlay for the mobile New Task drawer */

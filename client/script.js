@@ -36,6 +36,93 @@ document.addEventListener("keydown", (event) => {
 
 // Editing existing tasks in-place
 const taskHolderDiv = document.getElementById("task-holder-div");
+const tasksSummaryBadge = document.getElementById("tasks-summary-badge");
+const emptyTasksMessage = document.getElementById("empty-tasks-message");
+let activeTaskFilter = "all";
+
+function getLocalDateString(dateObj = new Date()) {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const day = String(dateObj.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function getDeadlineBadgeInfo(deadlineStr, startTimeStr) {
+    if (!deadlineStr || !/^\d{4}-\d{2}-\d{2}$/.test(deadlineStr)) return null;
+
+    const now = new Date();
+    const todayStr = getLocalDateString(now);
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    const tomorrowStr = getLocalDateString(tomorrow);
+
+    if (deadlineStr < todayStr) {
+        return { text: "Overdue", className: "overdue-badge" };
+    }
+
+    if (deadlineStr === todayStr) {
+        if (startTimeStr && /^\d{2}:\d{2}$/.test(startTimeStr)) {
+            const taskStart = new Date(`${deadlineStr}T${startTimeStr}:00`);
+            if (!Number.isNaN(taskStart.getTime()) && taskStart < now) {
+                return { text: "Overdue", className: "overdue-badge" };
+            }
+        }
+        return { text: "Due Today", className: "today-badge" };
+    }
+
+    if (deadlineStr === tomorrowStr) {
+        return { text: "Tomorrow", className: "tomorrow-badge" };
+    }
+
+    return null;
+}
+
+function updateTaskSummaryAndFilters() {
+    if (!taskHolderDiv) return;
+
+    const allArticles = Array.from(taskHolderDiv.querySelectorAll(".task-article"));
+    const todayStr = getLocalDateString();
+
+    let visibleCount = 0;
+    let totalHours = 0;
+
+    allArticles.forEach((article) => {
+        const data = extractTaskData(article);
+        let matches = true;
+
+        if (activeTaskFilter === "today") {
+            matches = data.deadline === todayStr;
+        } else if (activeTaskFilter !== "all") {
+            matches = (data.priority || "").toLowerCase() === activeTaskFilter.toLowerCase();
+        }
+
+        article.style.display = matches ? "" : "none";
+
+        if (matches) {
+            visibleCount++;
+            totalHours += parseFloat(data.duration) || 0;
+        }
+    });
+
+    if (tasksSummaryBadge) {
+        const roundedHours = Math.round(totalHours * 100) / 100;
+        const taskLabel = visibleCount === 1 ? "1 task" : `${visibleCount} tasks`;
+        tasksSummaryBadge.textContent = `${taskLabel} · ${roundedHours} hrs`;
+    }
+
+    if (emptyTasksMessage) {
+        if (allArticles.length === 0) {
+            emptyTasksMessage.textContent = "No tasks scheduled — you're all caught up!";
+            emptyTasksMessage.style.display = "block";
+        } else if (visibleCount === 0) {
+            emptyTasksMessage.textContent = "No scheduled tasks match this filter.";
+            emptyTasksMessage.style.display = "block";
+        } else {
+            emptyTasksMessage.style.display = "none";
+        }
+    }
+}
 
 function getPriorityClass(priority) {
     const normalized = (priority || "Low").toLowerCase();
@@ -78,31 +165,33 @@ function sortScheduledTasks() {
     if (!taskHolderDiv) return;
 
     const articles = Array.from(taskHolderDiv.querySelectorAll(".task-article"));
-    if (articles.length <= 1) return;
+    if (articles.length > 1) {
+        articles.sort((articleA, articleB) => {
+            const dataA = extractTaskData(articleA);
+            const dataB = extractTaskData(articleB);
 
-    articles.sort((articleA, articleB) => {
-        const dataA = extractTaskData(articleA);
-        const dataB = extractTaskData(articleB);
+            const timeA = getTaskTimestamp(dataA);
+            const timeB = getTaskTimestamp(dataB);
 
-        const timeA = getTaskTimestamp(dataA);
-        const timeB = getTaskTimestamp(dataB);
+            // 1. Primary sort: Earliest deadline + start time at the top
+            if (timeA !== timeB) {
+                return timeA - timeB;
+            }
 
-        // 1. Primary sort: Earliest deadline + start time at the top
-        if (timeA !== timeB) {
-            return timeA - timeB;
-        }
+            // 2. Secondary sort: Higher priority first (High > Medium > Low)
+            const priorityDiff = getPriorityWeight(dataB.priority) - getPriorityWeight(dataA.priority);
+            if (priorityDiff !== 0) {
+                return priorityDiff;
+            }
 
-        // 2. Secondary sort: Higher priority first (High > Medium > Low)
-        const priorityDiff = getPriorityWeight(dataB.priority) - getPriorityWeight(dataA.priority);
-        if (priorityDiff !== 0) {
-            return priorityDiff;
-        }
+            // 3. Tie-breaker: Longer duration first
+            return (Number(dataB.duration) || 0) - (Number(dataA.duration) || 0);
+        });
 
-        // 3. Tie-breaker: Longer duration first
-        return (Number(dataB.duration) || 0) - (Number(dataA.duration) || 0);
-    });
+        articles.forEach((article) => taskHolderDiv.appendChild(article));
+    }
 
-    articles.forEach((article) => taskHolderDiv.appendChild(article));
+    updateTaskSummaryAndFilters();
 }
 
 function extractTaskData(article) {
@@ -173,7 +262,16 @@ function renderTaskInfoView(article, data) {
 
     infoCells[3].innerHTML = "";
     const deadlineP = document.createElement("p");
-    deadlineP.textContent = `Due by ${data.deadline || "deadline"}`;
+    const badgeInfo = getDeadlineBadgeInfo(data.deadline, startTime);
+    if (badgeInfo) {
+        const badgeSpan = document.createElement("span");
+        badgeSpan.className = `deadline-badge ${badgeInfo.className}`;
+        badgeSpan.textContent = badgeInfo.text;
+        deadlineP.appendChild(badgeSpan);
+        deadlineP.appendChild(document.createTextNode(data.deadline));
+    } else {
+        deadlineP.textContent = `Due by ${data.deadline || "deadline"}`;
+    }
     infoCells[3].appendChild(deadlineP);
 
     infoCells[4].innerHTML = "";
@@ -458,6 +556,7 @@ async function handleCompleteTask(article) {
         }
     }
     article.remove();
+    updateTaskSummaryAndFilters();
 }
 
 async function handleDeleteTask(article) {
@@ -470,12 +569,22 @@ async function handleDeleteTask(article) {
         }
     }
     article.remove();
+    updateTaskSummaryAndFilters();
 }
 
 if (taskHolderDiv) {
     taskHolderDiv.addEventListener("click", (event) => {
         const button = event.target.closest("button");
         if (button) {
+            if (button.classList.contains("filter-pill")) {
+                activeTaskFilter = button.dataset.filter || "all";
+                taskHolderDiv.querySelectorAll(".filter-pill").forEach((pill) => {
+                    pill.classList.toggle("active-filter", pill === button);
+                });
+                updateTaskSummaryAndFilters();
+                return;
+            }
+
             const article = button.closest(".task-article");
             if (!article) return;
 
@@ -759,6 +868,7 @@ if (create_task_btn) {
 
 // Initialize Schedule button validation colour and load saved tasks from server
 updateScheduleButtonState();
+updateTaskSummaryAndFilters();
 loadTasksFromServer();
 
 // Google Calendar connection status check
