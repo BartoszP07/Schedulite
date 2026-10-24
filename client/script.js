@@ -623,4 +623,44 @@ if (create_task_btn) {
 updateScheduleButtonState();
 loadTasksFromServer();
 
+// Google Calendar connection status check
+const googleCalendarBtn = document.getElementById("google-calendar-btn");
+
+function setGoogleButtonConnected() {
+    if (!googleCalendarBtn) return;
+    googleCalendarBtn.classList.add("connected");
+    googleCalendarBtn.textContent = "Google Calendar Connected";
+    googleCalendarBtn.removeAttribute("href");
+    googleCalendarBtn.setAttribute("aria-disabled", "true");
+}
+
+if (googleCalendarBtn) {
+    googleCalendarBtn.addEventListener("click", (event) => {
+        if (googleCalendarBtn.classList.contains("connected")) {
+            event.preventDefault();
+        }
+    });
+}
+
+async function checkGoogleConnectionStatus() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("google") === "connected") {
+        setGoogleButtonConnected();
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    try {
+        const response = await fetch("/api/auth/google/status");
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.connected) {
+            setGoogleButtonConnected();
+        }
+    } catch (error) {
+        console.error("Error checking Google Calendar connection status:", error);
+    }
+}
+
+checkGoogleConnectionStatus();
+
 

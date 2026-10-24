@@ -65,6 +65,10 @@ body{
 /* Google Calendar Connect Button */
 #google-calendar-btn{
     position: relative;
+    display: inline-block;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
     padding: 0.6rem 1.35rem;
     border-radius: 2rem;
     border: var(--border-width) solid var(--border-colour);
@@ -92,11 +96,16 @@ body{
 }
 
 /* Connected state: add class "connected" to #google-calendar-btn */
-#google-calendar-btn.connected{
+#google-calendar-btn.connected,
+#google-calendar-btn.connected:hover,
+#google-calendar-btn.connected:active{
     background: var(--low-priority-colour);
     color: var(--text-colour);
     text-shadow: none;
     box-shadow: var(--shadow-offset-sm);
+    transform: none;
+    pointer-events: none;
+    cursor: default;
 }
 
 #google-calendar-btn.connected::before{
