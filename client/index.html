@@ -8,68 +8,106 @@
 </head>
 <body>
     <header id="top-bar">
-        <h1 id="main-title">Schedulite</h1>
+        <div id="top-bar-left">
+            <h1 id="main-title">Schedulite</h1>
+            <nav id="app-tabs" aria-label="Application sections">
+                <button type="button" class="app-tab-btn active-tab" data-tab="scheduler">Scheduler</button>
+                <button type="button" class="app-tab-btn" data-tab="day-tasks">Day Tasks</button>
+            </nav>
+        </div>
         <a href="/api/auth/google" id="google-calendar-btn">Connect Google Calendar</a>
     </header>
 
-    <div id="mobile-modal-backdrop"></div>
+    <div id="scheduler-tab-view" class="tab-view active-view">
+        <div id="mobile-modal-backdrop"></div>
 
-    <div id="create-task-div" class="custom-fieldset">
-        <span class="custom-legend">New Task</span>
-        <button type="button" id="close-create-task-btn" aria-label="Close new task menu">&times;</button>
-        <div id="inputs-holder">
-            <div class="input-label-holder">
-                <label for="task-title-inp" class="input-label">Title</label>
-                <input type="text" id="task-title-inp" class="task-input-text">
+        <div id="create-task-div" class="custom-fieldset">
+            <span class="custom-legend">New Task</span>
+            <button type="button" id="close-create-task-btn" aria-label="Close new task menu">&times;</button>
+            <div id="inputs-holder">
+                <div class="input-label-holder">
+                    <label for="task-title-inp" class="input-label">Title</label>
+                    <input type="text" id="task-title-inp" class="task-input-text">
+                </div>
+                <div class="input-label-holder">
+                    <label for="task-description-inp" class="input-label">Description</label>
+                    <input type="text" id="task-description-inp" class="task-input-text">
+                </div>
+                <div class="input-label-holder">
+                    <label for="task-priority-inp" class="input-label">Priority</label>
+                    <select name="Priority" id="task-priority-inp" class="task-input-text">
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+                <div class="input-label-holder">
+                    <label for="task-deadline-inp" class="input-label">Deadline</label>
+                    <input type="date" id="task-deadline-inp" class="task-input-text">
+                </div>
+                <div class="input-label-holder">
+                    <label for="task-starttime-inp" class="input-label">Start Time</label>
+                    <input type="time" id="task-starttime-inp" class="task-input-text">
+                </div>
+                <div class="input-label-holder">
+                    <label for="task-duration-inp" class="input-label">Duration (hrs)</label>
+                    <input type="text" id="task-duration-inp" class="task-input-text">
+                </div>
+                <div class="input-label-holder">
+                    <label for="task-colour-inp" class="input-label">Colour</label>
+                    <input type="color" id="task-colour-inp" class="task-input-text task-colour-input" value="#4285f4">
+                </div>
             </div>
-            <div class="input-label-holder">
-                <label for="task-description-inp" class="input-label">Description</label>
-                <input type="text" id="task-description-inp" class="task-input-text">
-            </div>
-            <div class="input-label-holder">
-                <label for="task-priority-inp" class="input-label">Priority</label>
-                <select name="Priority" id="task-priority-inp" class="task-input-text">
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                </select>
-            </div>
-            <div class="input-label-holder">
-                <label for="task-deadline-inp" class="input-label">Deadline</label>
-                <input type="date" id="task-deadline-inp" class="task-input-text">
-            </div>
-            <div class="input-label-holder">
-                <label for="task-starttime-inp" class="input-label">Start Time</label>
-                <input type="time" id="task-starttime-inp" class="task-input-text">
-            </div>
-            <div class="input-label-holder">
-                <label for="task-duration-inp" class="input-label">Duration (hrs)</label>
-                <input type="text" id="task-duration-inp" class="task-input-text">
-            </div>
-            <div class="input-label-holder">
-                <label for="task-colour-inp" class="input-label">Colour</label>
-                <input type="color" id="task-colour-inp" class="task-input-text task-colour-input" value="#4285f4">
-            </div>
+
+            <button id="create-task-btn">Schedule</button>
+
         </div>
 
-        <button id="create-task-btn">Schedule</button>
-
-    </div>
-
-    <div id="task-holder-div" class="custom-fieldset">
-        <span class="custom-legend">Scheduled Tasks</span>
-        <span id="tasks-summary-badge" class="custom-legend summary-badge">0 tasks &middot; 0 hrs</span>
-        <div id="task-filter-bar">
-            <button type="button" class="filter-pill active-filter" data-filter="all">All</button>
-            <button type="button" class="filter-pill" data-filter="today">Today</button>
-            <button type="button" class="filter-pill filter-high" data-filter="High">High</button>
-            <button type="button" class="filter-pill filter-medium" data-filter="Medium">Medium</button>
-            <button type="button" class="filter-pill filter-low" data-filter="Low">Low</button>
+        <div id="task-holder-div" class="custom-fieldset">
+            <span class="custom-legend">Scheduled Tasks</span>
+            <span id="tasks-summary-badge" class="custom-legend summary-badge">0 tasks &middot; 0 hrs</span>
+            <div id="task-filter-bar">
+                <button type="button" class="filter-pill active-filter" data-filter="all">All</button>
+                <button type="button" class="filter-pill" data-filter="today">Today</button>
+                <button type="button" class="filter-pill filter-high" data-filter="High">High</button>
+                <button type="button" class="filter-pill filter-medium" data-filter="Medium">Medium</button>
+                <button type="button" class="filter-pill filter-low" data-filter="Low">Low</button>
+            </div>
+            <div id="empty-tasks-message">No tasks scheduled — you're all caught up!</div>
         </div>
-        <div id="empty-tasks-message">No tasks scheduled — you're all caught up!</div>
+
+        <button type="button" id="open-create-task-btn" aria-label="Create new task">+ New Task</button>
     </div>
 
-    <button type="button" id="open-create-task-btn" aria-label="Create new task">+ New Task</button>
+    <div id="day-tasks-tab-view" class="tab-view hidden-view">
+        <div id="create-day-task-div" class="custom-fieldset">
+            <span class="custom-legend">Quick Note / Task</span>
+            <form id="add-day-task-form" autocomplete="off">
+                <div id="day-inputs-holder">
+                    <div class="input-label-holder">
+                        <label for="day-task-title-inp" class="input-label">Task Name</label>
+                        <input type="text" id="day-task-title-inp" class="task-input-text" placeholder="What needs doing today?" required>
+                    </div>
+                    <div class="input-label-holder">
+                        <label for="day-task-desc-inp" class="input-label">Note / Description (optional)</label>
+                        <input type="text" id="day-task-desc-inp" class="task-input-text" placeholder="Extra details or quick note...">
+                    </div>
+                </div>
+                <button type="submit" id="add-day-task-btn" class="valid-task-input">Add Task</button>
+            </form>
+        </div>
+
+        <div id="day-task-holder-div" class="custom-fieldset">
+            <span class="custom-legend">Day Tasks</span>
+            <span id="day-tasks-summary-badge" class="custom-legend summary-badge">0 to do</span>
+            <div id="day-tasks-header-bar">
+                <span id="day-tasks-date-label"></span>
+                <button type="button" id="clear-completed-day-tasks-btn" class="ammend-task-btn delete hidden-btn">Clear ticked tasks</button>
+            </div>
+            <div id="empty-day-tasks-message">Nothing on the list yet — add a quick task above!</div>
+            <ul id="day-task-list"></ul>
+        </div>
+    </div>
 
     <script src="script.js"></script>
 </body>

@@ -57,7 +57,27 @@ db.serialize(() => {
             loadSavedTokensFromDb();
         }
     });
+
+    // Table for Day Tasks (quick daily checklist notepad)
+    db.run(`CREATE TABLE IF NOT EXISTS day_tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        completed INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
 });
+
+function formatDayTask(row) {
+    if (!row) return null;
+    return {
+        id: row.id,
+        title: row.title,
+        description: row.description || "",
+        completed: Boolean(row.completed),
+        created_at: row.created_at
+    };
+}
 
 // AES-256-GCM helpers for encrypting tokens at rest in SQLite
 const ENCRYPTION_KEY = crypto.scryptSync(
@@ -457,6 +477,93 @@ app.get('/api/get-tasks', (req, res) => {
         
         // Send the array of task objects to the frontend
         res.json(rows);
+    });
+});
+
+// ==========================================
+// Day Tasks (Daily Checklist Notepad) Routes
+// ==========================================
+
+app.get("/api/day-tasks", (req, res) => {
+    const sql = `SELECT * FROM day_tasks ORDER BY completed ASC, id DESC`;
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json((rows || []).map(formatDayTask));
+    });
+});
+
+app.post("/api/day-tasks", (req, res) => {
+    const title = (req.body.title || "").trim();
+    const description = (req.body.description || "").trim();
+
+    if (!title) {
+        return res.status(400).json({ error: "Task name is required" });
+    }
+
+    const sql = `INSERT INTO day_tasks (title, description, completed) VALUES (?, ?, 0)`;
+    db.run(sql, [title, description], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+
+        db.get(`SELECT * FROM day_tasks WHERE id = ?`, [this.lastID], (getErr, row) => {
+            if (getErr) return res.status(500).json({ error: getErr.message });
+            res.status(201).json(formatDayTask(row));
+        });
+    });
+});
+
+app.put("/api/day-tasks/:id", (req, res) => {
+    const taskId = Number(req.params.id);
+    const title = (req.body.title || "").trim();
+    const description = (req.body.description || "").trim();
+
+    if (!title) {
+        return res.status(400).json({ error: "Task name cannot be empty" });
+    }
+
+    const sql = `UPDATE day_tasks SET title = ?, description = ? WHERE id = ?`;
+    db.run(sql, [title, description, taskId], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: "Task not found" });
+
+        db.get(`SELECT * FROM day_tasks WHERE id = ?`, [taskId], (getErr, row) => {
+            if (getErr) return res.status(500).json({ error: getErr.message });
+            res.json(formatDayTask(row));
+        });
+    });
+});
+
+app.patch("/api/day-tasks/:id/toggle", (req, res) => {
+    const taskId = Number(req.params.id);
+
+    db.get(`SELECT * FROM day_tasks WHERE id = ?`, [taskId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Task not found" });
+
+        const nextState = row.completed ? 0 : 1;
+        db.run(`UPDATE day_tasks SET completed = ? WHERE id = ?`, [nextState, taskId], function (updateErr) {
+            if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+            db.get(`SELECT * FROM day_tasks WHERE id = ?`, [taskId], (getErr, updatedRow) => {
+                if (getErr) return res.status(500).json({ error: getErr.message });
+                res.json(formatDayTask(updatedRow));
+            });
+        });
+    });
+});
+
+app.delete("/api/day-tasks/completed", (req, res) => {
+    db.run(`DELETE FROM day_tasks WHERE completed = 1`, [], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ deletedCount: this.changes });
+    });
+});
+
+app.delete("/api/day-tasks/:id", (req, res) => {
+    const taskId = Number(req.params.id);
+    db.run(`DELETE FROM day_tasks WHERE id = ?`, [taskId], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: "Task not found" });
+        res.json({ message: "Task deleted" });
     });
 });
 

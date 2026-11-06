@@ -917,6 +917,321 @@ if (!isTestEnv) {
     checkGoogleConnectionStatus();
 }
 
+// ==========================================
+// Tab Navigation & Day Tasks Integration
+// ==========================================
+const appTabsNav = document.getElementById("app-tabs");
+const schedulerTabView = document.getElementById("scheduler-tab-view");
+const dayTasksTabView = document.getElementById("day-tasks-tab-view");
+
+function switchAppTab(tabName) {
+    const normalized = tabName === "day-tasks" ? "day-tasks" : "scheduler";
+
+    if (appTabsNav) {
+        appTabsNav.querySelectorAll(".app-tab-btn").forEach((btn) => {
+            btn.classList.toggle("active-tab", btn.dataset.tab === normalized);
+        });
+    }
+
+    if (schedulerTabView) {
+        schedulerTabView.classList.toggle("active-view", normalized === "scheduler");
+        schedulerTabView.classList.toggle("hidden-view", normalized !== "scheduler");
+    }
+
+    if (dayTasksTabView) {
+        dayTasksTabView.classList.toggle("active-view", normalized === "day-tasks");
+        dayTasksTabView.classList.toggle("hidden-view", normalized !== "day-tasks");
+    }
+
+    if (normalized !== "scheduler") {
+        closeMobileTaskSheet();
+    }
+}
+
+if (appTabsNav) {
+    appTabsNav.addEventListener("click", (event) => {
+        const btn = event.target.closest(".app-tab-btn");
+        if (!btn) return;
+        switchAppTab(btn.dataset.tab);
+    });
+}
+
+// Day Tasks Elements & State
+const dayTasksDateLabel = document.getElementById("day-tasks-date-label");
+const dayTasksSummaryBadge = document.getElementById("day-tasks-summary-badge");
+const addDayTaskForm = document.getElementById("add-day-task-form");
+const dayTaskTitleInput = document.getElementById("day-task-title-inp");
+const dayTaskDescInput = document.getElementById("day-task-desc-inp");
+const emptyDayTasksMessage = document.getElementById("empty-day-tasks-message");
+const dayTaskListEl = document.getElementById("day-task-list");
+const clearCompletedDayTasksBtn = document.getElementById("clear-completed-day-tasks-btn");
+
+let dayTasksState = [];
+
+function renderDayTasksDateHeader() {
+    if (!dayTasksDateLabel) return;
+    const now = new Date();
+    dayTasksDateLabel.textContent = now.toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+    });
+}
+
+function updateDayTasksSummary() {
+    const total = dayTasksState.length;
+    const done = dayTasksState.filter((t) => t.completed).length;
+    const remaining = total - done;
+
+    if (dayTasksSummaryBadge) {
+        dayTasksSummaryBadge.textContent = done > 0
+            ? `${remaining} to do · ${done} done`
+            : `${remaining} to do`;
+    }
+
+    if (emptyDayTasksMessage) {
+        emptyDayTasksMessage.style.display = total > 0 ? "none" : "block";
+    }
+
+    if (clearCompletedDayTasksBtn) {
+        clearCompletedDayTasksBtn.classList.toggle("hidden-btn", done === 0);
+    }
+}
+
+function renderDayTasks() {
+    if (!dayTaskListEl) return;
+    dayTaskListEl.innerHTML = "";
+    updateDayTasksSummary();
+
+    dayTasksState.forEach((task) => {
+        const li = document.createElement("li");
+        li.className = `day-task-item ${task.completed ? "completed" : ""}`;
+        li.dataset.dayTaskId = task.id;
+
+        const leftDiv = document.createElement("div");
+        leftDiv.className = "day-task-left";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "day-task-checkbox";
+        checkbox.checked = Boolean(task.completed);
+        checkbox.setAttribute("aria-label", `Mark "${task.title}" as done`);
+        checkbox.addEventListener("change", () => toggleDayTask(task.id));
+
+        const textGroup = document.createElement("div");
+        textGroup.className = "day-task-text-group";
+        textGroup.addEventListener("click", () => toggleDayTask(task.id));
+
+        const titleP = document.createElement("p");
+        titleP.className = "day-task-title";
+        titleP.textContent = task.title;
+        textGroup.appendChild(titleP);
+
+        if (task.description) {
+            const descP = document.createElement("p");
+            descP.className = "day-task-desc";
+            descP.textContent = task.description;
+            textGroup.appendChild(descP);
+        }
+
+        leftDiv.appendChild(checkbox);
+        leftDiv.appendChild(textGroup);
+
+        const actionsDiv = document.createElement("div");
+        actionsDiv.className = "day-task-actions";
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "ammend-task-btn day-edit-btn";
+        editBtn.textContent = "Edit";
+        editBtn.addEventListener("click", () => enterDayTaskEditMode(li, task));
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "ammend-task-btn delete day-delete-btn";
+        deleteBtn.textContent = "Delete";
+        deleteBtn.addEventListener("click", () => deleteDayTask(task.id));
+
+        actionsDiv.appendChild(editBtn);
+        actionsDiv.appendChild(deleteBtn);
+
+        li.appendChild(leftDiv);
+        li.appendChild(actionsDiv);
+        dayTaskListEl.appendChild(li);
+    });
+}
+
+function enterDayTaskEditMode(li, task) {
+    const leftDiv = li.querySelector(".day-task-left");
+    const actionsDiv = li.querySelector(".day-task-actions");
+    if (!leftDiv || !actionsDiv) return;
+
+    li.classList.add("is-editing");
+    leftDiv.innerHTML = "";
+    actionsDiv.innerHTML = "";
+
+    const editBox = document.createElement("div");
+    editBox.className = "day-edit-inputs";
+
+    const editTitle = document.createElement("input");
+    editTitle.type = "text";
+    editTitle.className = "edit-task-input";
+    editTitle.value = task.title;
+    editTitle.placeholder = "Task name...";
+
+    const editDesc = document.createElement("input");
+    editDesc.type = "text";
+    editDesc.className = "edit-task-input";
+    editDesc.value = task.description || "";
+    editDesc.placeholder = "Description (optional)...";
+
+    editBox.appendChild(editTitle);
+    editBox.appendChild(editDesc);
+    leftDiv.appendChild(editBox);
+
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "ammend-task-btn save-btn";
+    saveBtn.textContent = "Save";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "ammend-task-btn cancel-btn";
+    cancelBtn.textContent = "Cancel";
+
+    const submitEdit = async () => {
+        const updatedTitle = editTitle.value.trim();
+        const updatedDesc = editDesc.value.trim();
+        if (!updatedTitle) {
+            editTitle.classList.add("field-error");
+            editTitle.focus();
+            return;
+        }
+        await updateDayTask(task.id, updatedTitle, updatedDesc);
+    };
+
+    saveBtn.addEventListener("click", submitEdit);
+    cancelBtn.addEventListener("click", () => renderDayTasks());
+
+    editBox.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            submitEdit();
+        } else if (e.key === "Escape") {
+            e.preventDefault();
+            renderDayTasks();
+        }
+    });
+
+    actionsDiv.appendChild(saveBtn);
+    actionsDiv.appendChild(cancelBtn);
+    editTitle.focus();
+}
+
+async function loadDayTasksFromServer() {
+    try {
+        const res = await fetch("/api/day-tasks");
+        if (!res.ok) throw new Error("Failed to fetch day tasks");
+        dayTasksState = await res.json();
+        renderDayTasks();
+    } catch (err) {
+        console.error("Error loading day tasks:", err);
+    }
+}
+
+async function createDayTask(title, description) {
+    const res = await fetch("/api/day-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description })
+    });
+    if (!res.ok) throw new Error("Failed to create day task");
+    await loadDayTasksFromServer();
+}
+
+async function toggleDayTask(id) {
+    try {
+        const res = await fetch(`/api/day-tasks/${encodeURIComponent(id)}/toggle`, { method: "PATCH" });
+        if (!res.ok) throw new Error("Failed to toggle day task");
+        await loadDayTasksFromServer();
+    } catch (err) {
+        console.error("Error toggling day task:", err);
+    }
+}
+
+async function updateDayTask(id, title, description) {
+    try {
+        const res = await fetch(`/api/day-tasks/${encodeURIComponent(id)}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, description })
+        });
+        if (!res.ok) throw new Error("Failed to update day task");
+        await loadDayTasksFromServer();
+    } catch (err) {
+        console.error("Error updating day task:", err);
+    }
+}
+
+async function deleteDayTask(id) {
+    try {
+        const res = await fetch(`/api/day-tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to delete day task");
+        await loadDayTasksFromServer();
+    } catch (err) {
+        console.error("Error deleting day task:", err);
+    }
+}
+
+async function clearCompletedDayTasks() {
+    try {
+        const res = await fetch("/api/day-tasks/completed", { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to clear completed day tasks");
+        await loadDayTasksFromServer();
+    } catch (err) {
+        console.error("Error clearing completed day tasks:", err);
+    }
+}
+
+if (addDayTaskForm) {
+    addDayTaskForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const title = dayTaskTitleInput?.value.trim() || "";
+        const description = dayTaskDescInput?.value.trim() || "";
+        if (!title) {
+            dayTaskTitleInput?.classList.add("field-error");
+            return;
+        }
+        dayTaskTitleInput?.classList.remove("field-error");
+
+        try {
+            await createDayTask(title, description);
+            if (dayTaskTitleInput) dayTaskTitleInput.value = "";
+            if (dayTaskDescInput) dayTaskDescInput.value = "";
+            dayTaskTitleInput?.focus();
+        } catch (err) {
+            console.error("Error adding day task:", err);
+        }
+    });
+}
+
+if (dayTaskTitleInput) {
+    dayTaskTitleInput.addEventListener("input", () => {
+        dayTaskTitleInput.classList.remove("field-error");
+    });
+}
+
+if (clearCompletedDayTasksBtn) {
+    clearCompletedDayTasksBtn.addEventListener("click", clearCompletedDayTasks);
+}
+
+renderDayTasksDateHeader();
+updateDayTasksSummary();
+if (!isTestEnv) {
+    loadDayTasksFromServer();
+}
+
 if (typeof module !== "undefined" && module.exports) {
     module.exports = {
         openMobileTaskSheet,
@@ -938,7 +1253,13 @@ if (typeof module !== "undefined" && module.exports) {
         getNewTaskValidation,
         updateScheduleButtonState,
         handleCreateTask,
-        setGoogleButtonConnected
+        setGoogleButtonConnected,
+        switchAppTab,
+        renderDayTasks,
+        setDayTasksState: (items) => {
+            dayTasksState = Array.isArray(items) ? items : [];
+            renderDayTasks();
+        }
     };
 }
 

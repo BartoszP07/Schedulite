@@ -64,7 +64,10 @@ describe("Schedulite Server — Unit & API Tests", () => {
     });
 
     beforeEach((done) => {
-        db.run(`DELETE FROM tasks`, () => done());
+        db.serialize(() => {
+            db.run(`DELETE FROM tasks`);
+            db.run(`DELETE FROM day_tasks`, () => done());
+        });
     });
 
     describe("Token Encryption (AES-256-GCM)", () => {
@@ -248,6 +251,63 @@ describe("Schedulite Server — Unit & API Tests", () => {
             const res = await requestApp(server, "GET", "/api/auth/google/status");
             expect(res.status).toBe(200);
             expect(typeof res.body.connected).toBe("boolean");
+        });
+    });
+
+    describe("Day Tasks (Checklist Notepad) REST API Endpoints", () => {
+        test("POST /api/day-tasks creates a daily task and GET /api/day-tasks returns it", async () => {
+            const createRes = await requestApp(server, "POST", "/api/day-tasks", {
+                title: "Buy milk",
+                description: "Semi-skimmed"
+            });
+            expect(createRes.status).toBe(201);
+            expect(createRes.body).toMatchObject({
+                title: "Buy milk",
+                description: "Semi-skimmed",
+                completed: false
+            });
+
+            const listRes = await requestApp(server, "GET", "/api/day-tasks");
+            expect(listRes.status).toBe(200);
+            expect(listRes.body).toHaveLength(1);
+            expect(listRes.body[0].title).toBe("Buy milk");
+        });
+
+        test("PATCH /api/day-tasks/:id/toggle toggles completed state and DELETE /api/day-tasks/completed clears ticked tasks", async () => {
+            const t1 = await requestApp(server, "POST", "/api/day-tasks", { title: "Task 1" });
+            const t2 = await requestApp(server, "POST", "/api/day-tasks", { title: "Task 2" });
+
+            const toggleRes = await requestApp(server, "PATCH", `/api/day-tasks/${t1.body.id}/toggle`);
+            expect(toggleRes.status).toBe(200);
+            expect(toggleRes.body.completed).toBe(true);
+
+            const clearRes = await requestApp(server, "DELETE", "/api/day-tasks/completed");
+            expect(clearRes.status).toBe(200);
+            expect(clearRes.body.deletedCount).toBe(1);
+
+            const remainingRes = await requestApp(server, "GET", "/api/day-tasks");
+            expect(remainingRes.body).toHaveLength(1);
+            expect(remainingRes.body[0].id).toBe(t2.body.id);
+        });
+
+        test("PUT /api/day-tasks/:id updates a daily task and DELETE /api/day-tasks/:id removes it", async () => {
+            const created = await requestApp(server, "POST", "/api/day-tasks", {
+                title: "Draft report",
+                description: "Section 1"
+            });
+
+            const updateRes = await requestApp(server, "PUT", `/api/day-tasks/${created.body.id}`, {
+                title: "Finalise report",
+                description: "Sections 1 & 2"
+            });
+            expect(updateRes.status).toBe(200);
+            expect(updateRes.body.title).toBe("Finalise report");
+
+            const delRes = await requestApp(server, "DELETE", `/api/day-tasks/${created.body.id}`);
+            expect(delRes.status).toBe(200);
+
+            const listRes = await requestApp(server, "GET", "/api/day-tasks");
+            expect(listRes.body).toHaveLength(0);
         });
     });
 });

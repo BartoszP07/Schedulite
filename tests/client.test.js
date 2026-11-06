@@ -187,5 +187,37 @@ describe("Schedulite Frontend — UI, Validation, Sorting & Edit Tests", () => {
             expect(googleBtn.getAttribute("aria-disabled")).toBe("true");
         });
     });
+
+    describe("Tab Navigation & Day Tasks View", () => {
+        test("switches cleanly between Scheduler and Day Tasks tabs locally", () => {
+            const schedulerView = document.getElementById("scheduler-tab-view");
+            const dayTasksView = document.getElementById("day-tasks-tab-view");
+
+            expect(schedulerView.classList.contains("active-view")).toBe(true);
+            expect(dayTasksView.classList.contains("hidden-view")).toBe(true);
+
+            clientModule.switchAppTab("day-tasks");
+            expect(schedulerView.classList.contains("hidden-view")).toBe(true);
+            expect(dayTasksView.classList.contains("active-view")).toBe(true);
+
+            clientModule.switchAppTab("scheduler");
+            expect(schedulerView.classList.contains("active-view")).toBe(true);
+            expect(dayTasksView.classList.contains("hidden-view")).toBe(true);
+        });
+
+        test("renders day tasks list and updates summary badge", () => {
+            clientModule.setDayTasksState([
+                { id: 1, title: "Write lab report", description: "COMP2261", completed: false },
+                { id: 2, title: "Gym session", description: "Push day", completed: true }
+            ]);
+
+            const badge = document.getElementById("day-tasks-summary-badge");
+            expect(badge.textContent).toBe("1 to do · 1 done");
+
+            const items = document.querySelectorAll("#day-task-list .day-task-item");
+            expect(items).toHaveLength(2);
+            expect(items[1].classList.contains("completed")).toBe(true);
+        });
+    });
 });
 

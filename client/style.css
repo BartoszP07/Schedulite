@@ -54,12 +54,47 @@ body{
     width: 100%;
 }
 
+#top-bar-left{
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+}
+
 #main-title{
     font-size: clamp(2rem, 4vw, 2.75rem);
     font-weight: 800;
     letter-spacing: -0.02em;
     margin-bottom: 0;
     display: inline-block;
+}
+
+/* Tab Switcher in Header */
+#app-tabs{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.app-tab-btn{
+    padding: 0.45rem 1.1rem;
+    border-radius: 2rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    background-color: var(--section-background-colour);
+    color: var(--text-colour);
+    border: var(--border-width) solid var(--border-colour);
+    box-shadow: var(--shadow-offset-sm);
+    cursor: pointer;
+}
+
+.app-tab-btn.active-tab{
+    background-color: var(--border-colour);
+    color: var(--background-colour);
+}
+
+.tab-view.hidden-view{
+    display: none !important;
 }
 
 /* Google Calendar Connect Button */
@@ -684,6 +719,180 @@ input[type="time"].edit-task-input {
     background-color: var(--low-priority-colour);
 }
 
+/* ==========================================
+   Day Tasks Tab Styling
+   ========================================== */
+#add-day-task-form {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    width: 100%;
+}
+
+#day-inputs-holder {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 0.85rem 1rem;
+    flex: 1 1 32rem;
+    min-width: 0;
+}
+
+#add-day-task-btn {
+    height: 2.5rem;
+    padding: 0 1.5rem;
+    border-radius: var(--input-border-rad);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+#day-task-holder-div {
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+#day-tasks-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+    padding-bottom: 0.25rem;
+}
+
+#day-tasks-date-label {
+    font-weight: 700;
+    font-size: 0.95rem;
+    opacity: 0.8;
+    padding-left: 0.25rem;
+}
+
+.hidden-btn {
+    display: none !important;
+}
+
+#empty-day-tasks-message {
+    width: 100%;
+    padding: 2rem 1rem;
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 600;
+    opacity: 0.65;
+    border: 2px dashed rgba(0, 0, 0, 0.25);
+    border-radius: var(--input-border-rad);
+}
+
+#day-task-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    width: 100%;
+}
+
+.day-task-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: var(--border-width) solid var(--border-colour);
+    border-radius: var(--input-border-rad);
+    background-color: var(--task-background-colour);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.day-task-item:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-offset-sm);
+}
+
+.day-task-item.completed {
+    background-color: rgb(242, 242, 242);
+    opacity: 0.82;
+}
+
+.day-task-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.day-task-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.45rem;
+    height: 1.45rem;
+    margin-top: 0.1rem;
+    border: var(--border-width) solid var(--border-colour);
+    border-radius: 0.45rem;
+    background-color: var(--input-background-colour);
+    box-shadow: 1.5px 1.5px 0px var(--border-colour);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease, transform 0.12s ease;
+}
+
+.day-task-checkbox:hover {
+    transform: translate(-1px, -1px);
+}
+
+.day-task-checkbox:checked {
+    background-color: var(--low-priority-colour);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 0.95rem;
+}
+
+.day-task-text-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+}
+
+.day-task-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.day-task-desc {
+    font-size: 0.92rem;
+    opacity: 0.8;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.day-task-item.completed .day-task-title,
+.day-task-item.completed .day-task-desc {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.day-task-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.day-edit-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.6rem;
+    width: 100%;
+}
+
 /* Tablet responsiveness */
 @media (max-width: 960px) {
     body {
@@ -754,9 +963,51 @@ input[type="time"].edit-task-input {
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
-        flex-wrap: nowrap;
-        gap: 0.5rem;
+        flex-wrap: wrap;
+        gap: 0.65rem;
         margin-bottom: 1.15rem;
+    }
+
+    #top-bar-left {
+        gap: 0.65rem;
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    #app-tabs {
+        gap: 0.35rem;
+    }
+
+    .app-tab-btn {
+        padding: 0.35rem 0.75rem;
+        font-size: 0.82rem;
+    }
+
+    #add-day-task-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #day-inputs-holder {
+        flex: 1 1 auto;
+        grid-template-columns: 1fr;
+    }
+
+    #add-day-task-btn {
+        width: 100%;
+        height: 2.75rem;
+    }
+
+    .day-task-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.65rem;
+        padding: 0.7rem 0.75rem;
+    }
+
+    .day-task-actions {
+        width: 100%;
+        justify-content: flex-end;
     }
 
     #main-title {
