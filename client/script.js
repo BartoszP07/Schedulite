@@ -997,8 +997,7 @@ if (appTabsNav) {
     });
 }
 
-// Day Tasks Elements & State
-const dayTasksDateLabel = document.getElementById("day-tasks-date-label");
+// Quick Tasks Elements & State
 const dayTasksSummaryBadge = document.getElementById("day-tasks-summary-badge");
 const addDayTaskForm = document.getElementById("add-day-task-form");
 const dayTaskTitleInput = document.getElementById("day-task-title-inp");
@@ -1009,14 +1008,15 @@ const clearCompletedDayTasksBtn = document.getElementById("clear-completed-day-t
 
 let dayTasksState = [];
 
-function renderDayTasksDateHeader() {
-    if (!dayTasksDateLabel) return;
-    const now = new Date();
-    dayTasksDateLabel.textContent = now.toLocaleDateString("en-GB", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric"
+function sortDayTasksList(items) {
+    return [...items].sort((a, b) => {
+        const pinDiff = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
+        if (pinDiff !== 0) return pinDiff;
+
+        const doneDiff = Number(Boolean(a.completed)) - Number(Boolean(b.completed));
+        if (doneDiff !== 0) return doneDiff;
+
+        return (Number(b.id) || 0) - (Number(a.id) || 0);
     });
 }
 
@@ -1043,11 +1043,15 @@ function updateDayTasksSummary() {
 function renderDayTasks() {
     if (!dayTaskListEl) return;
     dayTaskListEl.innerHTML = "";
+    dayTasksState = sortDayTasksList(dayTasksState);
     updateDayTasksSummary();
 
     dayTasksState.forEach((task) => {
         const li = document.createElement("li");
-        li.className = `day-task-item ${task.completed ? "completed" : ""}`;
+        const classes = ["day-task-item"];
+        if (task.completed) classes.push("completed");
+        if (task.pinned) classes.push("pinned");
+        li.className = classes.join(" ");
         li.dataset.dayTaskId = task.id;
 
         const leftDiv = document.createElement("div");
@@ -1066,7 +1070,13 @@ function renderDayTasks() {
 
         const titleP = document.createElement("p");
         titleP.className = "day-task-title";
-        titleP.textContent = task.title;
+        if (task.pinned) {
+            const pinBadge = document.createElement("span");
+            pinBadge.className = "pinned-task-badge";
+            pinBadge.textContent = "Pinned";
+            titleP.appendChild(pinBadge);
+        }
+        titleP.appendChild(document.createTextNode(task.title));
         textGroup.appendChild(titleP);
 
         if (task.description) {
@@ -1082,6 +1092,13 @@ function renderDayTasks() {
         const actionsDiv = document.createElement("div");
         actionsDiv.className = "day-task-actions";
 
+        const pinBtn = document.createElement("button");
+        pinBtn.type = "button";
+        pinBtn.className = `ammend-task-btn day-pin-btn ${task.pinned ? "active-pin" : ""}`;
+        pinBtn.textContent = task.pinned ? "Unpin" : "Pin";
+        pinBtn.setAttribute("aria-pressed", String(Boolean(task.pinned)));
+        pinBtn.addEventListener("click", () => togglePinDayTask(task.id));
+
         const editBtn = document.createElement("button");
         editBtn.type = "button";
         editBtn.className = "ammend-task-btn day-edit-btn";
@@ -1094,6 +1111,7 @@ function renderDayTasks() {
         deleteBtn.textContent = "Delete";
         deleteBtn.addEventListener("click", () => deleteDayTask(task.id));
 
+        actionsDiv.appendChild(pinBtn);
         actionsDiv.appendChild(editBtn);
         actionsDiv.appendChild(deleteBtn);
 
@@ -1201,6 +1219,16 @@ async function toggleDayTask(id) {
     }
 }
 
+async function togglePinDayTask(id) {
+    try {
+        const res = await fetch(`/api/day-tasks/${encodeURIComponent(id)}/pin`, { method: "PATCH" });
+        if (!res.ok) throw new Error("Failed to pin/unpin day task");
+        await loadDayTasksFromServer();
+    } catch (err) {
+        console.error("Error pinning day task:", err);
+    }
+}
+
 async function updateDayTask(id, title, description) {
     try {
         const res = await fetch(`/api/day-tasks/${encodeURIComponent(id)}`, {
@@ -1267,7 +1295,6 @@ if (clearCompletedDayTasksBtn) {
     clearCompletedDayTasksBtn.addEventListener("click", clearCompletedDayTasks);
 }
 
-renderDayTasksDateHeader();
 updateDayTasksSummary();
 if (!isTestEnv) {
     loadDayTasksFromServer();

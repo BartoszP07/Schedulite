@@ -805,18 +805,15 @@ input[type="time"].edit-task-input {
 #day-tasks-header-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     flex-wrap: wrap;
     gap: 0.5rem;
     width: 100%;
     padding-bottom: 0.25rem;
 }
 
-#day-tasks-date-label {
-    font-weight: 700;
-    font-size: 0.95rem;
-    opacity: 0.8;
-    padding-left: 0.25rem;
+#day-tasks-header-bar:has(.hidden-btn) {
+    display: none;
 }
 
 .hidden-btn {
@@ -863,6 +860,29 @@ input[type="time"].edit-task-input {
 .day-task-item.completed {
     background-color: rgb(242, 242, 242);
     opacity: 0.82;
+}
+
+.day-task-item.pinned {
+    border-left: 7px solid var(--medium-priority-colour);
+    background-color: rgb(255, 248, 232);
+}
+
+.pinned-task-badge {
+    display: inline-block;
+    padding: 0.08rem 0.5rem;
+    margin-right: 0.45rem;
+    border: 1.5px solid var(--border-colour);
+    border-radius: 1rem;
+    background-color: var(--medium-priority-colour);
+    font-weight: 800;
+    font-size: 0.78rem;
+    box-shadow: 1px 1px 0px var(--border-colour);
+    vertical-align: middle;
+}
+
+.day-pin-btn.active-pin {
+    background-color: var(--medium-priority-colour);
+    font-weight: 800;
 }
 
 .day-task-left {
