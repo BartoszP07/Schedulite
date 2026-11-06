@@ -12,10 +12,11 @@
             <h1 id="main-title">Schedulite</h1>
             <nav id="app-tabs" aria-label="Application sections">
                 <button type="button" class="app-tab-btn active-tab" data-tab="scheduler">Scheduler</button>
-                <button type="button" class="app-tab-btn" data-tab="day-tasks">Day Tasks</button>
+                <button type="button" class="app-tab-btn" data-tab="day-tasks">Tasks</button>
             </nav>
         </div>
         <div id="google-auth-controls">
+            <button type="button" id="theme-toggle-btn" aria-label="Toggle dark mode" title="Toggle dark mode">🌙 Dark</button>
             <a href="/api/auth/google" id="google-calendar-btn">Connect Google Calendar</a>
             <a href="/api/auth/google?reauth=1" id="google-reauth-btn" class="hidden-btn" title="Re-authenticate Google Calendar token">Re-authenticate</a>
         </div>
@@ -84,12 +85,12 @@
 
     <div id="day-tasks-tab-view" class="tab-view hidden-view">
         <div id="create-day-task-div" class="custom-fieldset">
-            <span class="custom-legend">Quick Note / Task</span>
+            <span class="custom-legend">New Task</span>
             <form id="add-day-task-form" autocomplete="off">
                 <div id="day-inputs-holder">
                     <div class="input-label-holder">
                         <label for="day-task-title-inp" class="input-label">Task Name</label>
-                        <input type="text" id="day-task-title-inp" class="task-input-text" placeholder="What needs doing today?" required>
+                        <input type="text" id="day-task-title-inp" class="task-input-text" placeholder="What needs doing?" required>
                     </div>
                     <div class="input-label-holder">
                         <label for="day-task-desc-inp" class="input-label">Note / Description (optional)</label>
@@ -101,13 +102,12 @@
         </div>
 
         <div id="day-task-holder-div" class="custom-fieldset">
-            <span class="custom-legend">Day Tasks</span>
+            <span class="custom-legend">Tasks</span>
             <span id="day-tasks-summary-badge" class="custom-legend summary-badge">0 to do</span>
             <div id="day-tasks-header-bar">
-                <span id="day-tasks-date-label"></span>
                 <button type="button" id="clear-completed-day-tasks-btn" class="ammend-task-btn delete hidden-btn">Clear ticked tasks</button>
             </div>
-            <div id="empty-day-tasks-message">Nothing on the list yet — add a quick task above!</div>
+            <div id="empty-day-tasks-message">Nothing on the list yet — add a task above!</div>
             <ul id="day-task-list"></ul>
         </div>
     </div>

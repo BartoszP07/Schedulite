@@ -58,14 +58,18 @@ db.serialize(() => {
         }
     });
 
-    // Table for Day Tasks (quick daily checklist notepad)
+    // Table for Quick Tasks (general checklist notepad)
     db.run(`CREATE TABLE IF NOT EXISTS day_tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         description TEXT DEFAULT '',
         completed INTEGER DEFAULT 0,
+        pinned INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+    )`, () => {
+        // Ensure existing databases have the pinned column
+        db.run(`ALTER TABLE day_tasks ADD COLUMN pinned INTEGER DEFAULT 0`, () => {});
+    });
 });
 
 function formatDayTask(row) {
@@ -75,6 +79,7 @@ function formatDayTask(row) {
         title: row.title,
         description: row.description || "",
         completed: Boolean(row.completed),
+        pinned: Boolean(row.pinned),
         created_at: row.created_at
     };
 }
@@ -558,11 +563,11 @@ app.get('/api/get-tasks', (req, res) => {
 });
 
 // ==========================================
-// Day Tasks (Daily Checklist Notepad) Routes
+// Quick Tasks (Checklist Notepad) Routes
 // ==========================================
 
 app.get("/api/day-tasks", (req, res) => {
-    const sql = `SELECT * FROM day_tasks ORDER BY completed ASC, id DESC`;
+    const sql = `SELECT * FROM day_tasks ORDER BY pinned DESC, completed ASC, id DESC`;
     db.all(sql, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json((rows || []).map(formatDayTask));
@@ -618,6 +623,25 @@ app.patch("/api/day-tasks/:id/toggle", (req, res) => {
 
         const nextState = row.completed ? 0 : 1;
         db.run(`UPDATE day_tasks SET completed = ? WHERE id = ?`, [nextState, taskId], function (updateErr) {
+            if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+            db.get(`SELECT * FROM day_tasks WHERE id = ?`, [taskId], (getErr, updatedRow) => {
+                if (getErr) return res.status(500).json({ error: getErr.message });
+                res.json(formatDayTask(updatedRow));
+            });
+        });
+    });
+});
+
+app.patch("/api/day-tasks/:id/pin", (req, res) => {
+    const taskId = Number(req.params.id);
+
+    db.get(`SELECT * FROM day_tasks WHERE id = ?`, [taskId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Task not found" });
+
+        const nextPinState = row.pinned ? 0 : 1;
+        db.run(`UPDATE day_tasks SET pinned = ? WHERE id = ?`, [nextPinState, taskId], function (updateErr) {
             if (updateErr) return res.status(500).json({ error: updateErr.message });
 
             db.get(`SELECT * FROM day_tasks WHERE id = ?`, [taskId], (getErr, updatedRow) => {

@@ -220,18 +220,36 @@ describe("Schedulite Frontend — UI, Validation, Sorting & Edit Tests", () => {
             expect(dayTasksView.classList.contains("hidden-view")).toBe(true);
         });
 
-        test("renders day tasks list and updates summary badge", () => {
+        test("renders quick tasks list, sorts pinned tasks to the top, and updates summary badge", () => {
             clientModule.setDayTasksState([
-                { id: 1, title: "Write lab report", description: "COMP2261", completed: false },
-                { id: 2, title: "Gym session", description: "Push day", completed: true }
+                { id: 1, title: "Write lab report", description: "COMP2261", completed: false, pinned: false },
+                { id: 2, title: "Gym session", description: "Push day", completed: true, pinned: false },
+                { id: 3, title: "Urgent pinned note", description: "Top priority", completed: false, pinned: true }
             ]);
 
             const badge = document.getElementById("day-tasks-summary-badge");
-            expect(badge.textContent).toBe("1 to do · 1 done");
+            expect(badge.textContent).toBe("2 to do · 1 done");
 
             const items = document.querySelectorAll("#day-task-list .day-task-item");
-            expect(items).toHaveLength(2);
-            expect(items[1].classList.contains("completed")).toBe(true);
+            expect(items).toHaveLength(3);
+            expect(items[0].classList.contains("pinned")).toBe(true);
+            expect(items[0].querySelector(".pinned-task-badge")?.textContent).toBe("Pinned");
+            expect(items[2].classList.contains("completed")).toBe(true);
+        });
+
+        test("toggles dark mode and persists theme preference in localStorage", () => {
+            const themeBtn = document.getElementById("theme-toggle-btn");
+            expect(document.body.classList.contains("dark-mode")).toBe(false);
+
+            clientModule.toggleTheme();
+            expect(document.body.classList.contains("dark-mode")).toBe(true);
+            expect(themeBtn.textContent).toContain("Light");
+            expect(localStorage.getItem("schedulite_theme")).toBe("dark");
+
+            clientModule.toggleTheme();
+            expect(document.body.classList.contains("dark-mode")).toBe(false);
+            expect(themeBtn.textContent).toContain("Dark");
+            expect(localStorage.getItem("schedulite_theme")).toBe("light");
         });
     });
 });

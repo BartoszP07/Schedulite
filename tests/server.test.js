@@ -335,6 +335,19 @@ describe("Schedulite Server — Unit & API Tests", () => {
             const listRes = await requestApp(server, "GET", "/api/day-tasks");
             expect(listRes.body).toHaveLength(0);
         });
+
+        test("PATCH /api/day-tasks/:id/pin pins a task to the top of the list", async () => {
+            const t1 = await requestApp(server, "POST", "/api/day-tasks", { title: "First Task" });
+            const t2 = await requestApp(server, "POST", "/api/day-tasks", { title: "Second Task" });
+
+            // Pin the older task (t1) and verify it moves above t2
+            const pinRes = await requestApp(server, "PATCH", `/api/day-tasks/${t1.body.id}/pin`);
+            expect(pinRes.status).toBe(200);
+            expect(pinRes.body.pinned).toBe(true);
+
+            const listRes = await requestApp(server, "GET", "/api/day-tasks");
+            expect(listRes.body.map((t) => t.id)).toEqual([t1.body.id, t2.body.id]);
+        });
     });
 });
 
