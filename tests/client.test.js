@@ -178,13 +178,60 @@ describe("Schedulite Frontend — UI, Validation, Sorting & Edit Tests", () => {
             expect(article.dataset.title).toBe("Original Title");
         });
 
-        test("disables Google Calendar button when setGoogleButtonConnected is called", () => {
+        test("disables Google Calendar button and reveals re-authenticate button when setGoogleButtonConnected is called", () => {
             const googleBtn = document.getElementById("google-calendar-btn");
+            const reauthBtn = document.getElementById("google-reauth-btn");
             clientModule.setGoogleButtonConnected();
 
             expect(googleBtn.classList.contains("connected")).toBe(true);
             expect(googleBtn.hasAttribute("href")).toBe(false);
             expect(googleBtn.getAttribute("aria-disabled")).toBe("true");
+            expect(reauthBtn.classList.contains("hidden-btn")).toBe(false);
+            expect(reauthBtn.getAttribute("href")).toBe("/api/auth/google?reauth=1");
+        });
+
+        test("shows expired warning and re-auth link when setGoogleButtonExpired is called", () => {
+            const googleBtn = document.getElementById("google-calendar-btn");
+            const reauthBtn = document.getElementById("google-reauth-btn");
+            clientModule.setGoogleButtonExpired();
+
+            expect(googleBtn.classList.contains("expired")).toBe(true);
+            expect(googleBtn.classList.contains("connected")).toBe(false);
+            expect(googleBtn.getAttribute("href")).toBe("/api/auth/google?reauth=1");
+            expect(googleBtn.textContent).toContain("Expired");
+            expect(reauthBtn.classList.contains("hidden-btn")).toBe(true);
+        });
+    });
+
+    describe("Tab Navigation & Day Tasks View", () => {
+        test("switches cleanly between Scheduler and Day Tasks tabs locally", () => {
+            const schedulerView = document.getElementById("scheduler-tab-view");
+            const dayTasksView = document.getElementById("day-tasks-tab-view");
+
+            expect(schedulerView.classList.contains("active-view")).toBe(true);
+            expect(dayTasksView.classList.contains("hidden-view")).toBe(true);
+
+            clientModule.switchAppTab("day-tasks");
+            expect(schedulerView.classList.contains("hidden-view")).toBe(true);
+            expect(dayTasksView.classList.contains("active-view")).toBe(true);
+
+            clientModule.switchAppTab("scheduler");
+            expect(schedulerView.classList.contains("active-view")).toBe(true);
+            expect(dayTasksView.classList.contains("hidden-view")).toBe(true);
+        });
+
+        test("renders day tasks list and updates summary badge", () => {
+            clientModule.setDayTasksState([
+                { id: 1, title: "Write lab report", description: "COMP2261", completed: false },
+                { id: 2, title: "Gym session", description: "Push day", completed: true }
+            ]);
+
+            const badge = document.getElementById("day-tasks-summary-badge");
+            expect(badge.textContent).toBe("1 to do · 1 done");
+
+            const items = document.querySelectorAll("#day-task-list .day-task-item");
+            expect(items).toHaveLength(2);
+            expect(items[1].classList.contains("completed")).toBe(true);
         });
     });
 });

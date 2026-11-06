@@ -57,7 +57,27 @@ db.serialize(() => {
             loadSavedTokensFromDb();
         }
     });
+
+    // Table for Day Tasks (quick daily checklist notepad)
+    db.run(`CREATE TABLE IF NOT EXISTS day_tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        completed INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
 });
+
+function formatDayTask(row) {
+    if (!row) return null;
+    return {
+        id: row.id,
+        title: row.title,
+        description: row.description || "",
+        completed: Boolean(row.completed),
+        created_at: row.created_at
+    };
+}
 
 // AES-256-GCM helpers for encrypting tokens at rest in SQLite
 const ENCRYPTION_KEY = crypto.scryptSync(
@@ -94,6 +114,29 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 let isGoogleConnected = false;
+let isGoogleTokenExpired = false;
+
+function isGoogleAuthError(error) {
+    if (!error) return false;
+    const status = Number(error?.code || error?.status || error?.response?.status);
+    const errorCode = String(error?.response?.data?.error || "").toLowerCase();
+    const message = String(error?.message || "").toLowerCase();
+
+    return (
+        status === 401 ||
+        errorCode === "invalid_grant" ||
+        errorCode === "invalid_token" ||
+        message.includes("invalid_grant") ||
+        message.includes("invalid credentials") ||
+        message.includes("token has been expired or revoked") ||
+        message.includes("no refresh token is set")
+    );
+}
+
+function markGoogleTokenExpired() {
+    isGoogleConnected = false;
+    isGoogleTokenExpired = true;
+}
 
 function saveTokensToDb(newTokens) {
     // Preserve existing refresh_token if Google only returned a refreshed access_token
@@ -103,6 +146,7 @@ function saveTokensToDb(newTokens) {
     };
     oauth2Client.setCredentials(mergedTokens);
     isGoogleConnected = true;
+    isGoogleTokenExpired = false;
 
     try {
         const encryptedPayload = encryptTokens(mergedTokens);
@@ -116,8 +160,40 @@ function saveTokensToDb(newTokens) {
     }
 }
 
+async function verifyGoogleTokenHealth() {
+    const creds = oauth2Client.credentials || {};
+    if (!creds.access_token && !creds.refresh_token) {
+        return { connected: false, expired: isGoogleTokenExpired };
+    }
+
+    const now = Date.now();
+    const isPastExpiry = creds.expiry_date ? creds.expiry_date <= now + 60 * 1000 : false;
+
+    if (isPastExpiry && !creds.refresh_token) {
+        markGoogleTokenExpired();
+        return { connected: false, expired: true };
+    }
+
+    if (isPastExpiry || !creds.access_token) {
+        try {
+            await oauth2Client.getAccessToken();
+            isGoogleConnected = true;
+            isGoogleTokenExpired = false;
+        } catch (error) {
+            if (isGoogleAuthError(error)) {
+                markGoogleTokenExpired();
+            }
+        }
+    }
+
+    return {
+        connected: isGoogleConnected && !isGoogleTokenExpired,
+        expired: isGoogleTokenExpired
+    };
+}
+
 function loadSavedTokensFromDb() {
-    db.get(`SELECT encrypted_tokens FROM google_tokens WHERE id = 1`, [], (err, row) => {
+    db.get(`SELECT encrypted_tokens FROM google_tokens WHERE id = 1`, [], async (err, row) => {
         if (err) {
             console.error("Error reading Google tokens from DB:", err.message);
             return;
@@ -128,8 +204,12 @@ function loadSavedTokensFromDb() {
             const tokens = decryptTokens(row.encrypted_tokens);
             oauth2Client.setCredentials(tokens);
             isGoogleConnected = true;
+            isGoogleTokenExpired = false;
             console.log("Loaded saved Google OAuth tokens from database.");
-            syncAllUnsyncedTasks();
+            const health = await verifyGoogleTokenHealth();
+            if (health.connected) {
+                syncAllUnsyncedTasks();
+            }
         } catch (error) {
             console.error("Failed to decrypt saved Google tokens:", error.message);
         }
@@ -248,6 +328,11 @@ async function syncTaskWithGoogleCalendar(taskId) {
                 });
                 return;
             } catch (updateErr) {
+                if (isGoogleAuthError(updateErr)) {
+                    markGoogleTokenExpired();
+                    console.warn("Google Calendar token expired or revoked during event update.");
+                    return;
+                }
                 const status = updateErr?.code || updateErr?.response?.status;
                 // Only create a new event if the old one was deleted from Google Calendar (404 / 410)
                 if (status !== 404 && status !== 410) {
@@ -286,7 +371,12 @@ async function syncTaskWithGoogleCalendar(taskId) {
             db.run(`UPDATE tasks SET google_event_id = ? WHERE id = ?`, [newEventId, numericId]);
         }
     } catch (error) {
-        console.error(`Error syncing task ${numericId} with Google Calendar:`, error.message);
+        if (isGoogleAuthError(error)) {
+            markGoogleTokenExpired();
+            console.warn(`Google Calendar token expired or revoked while syncing task ${numericId}.`);
+        } else {
+            console.error(`Error syncing task ${numericId} with Google Calendar:`, error.message);
+        }
     } finally {
         syncingTaskIds.delete(numericId);
     }
@@ -300,6 +390,11 @@ async function deleteGoogleCalendarEvent(googleEventId) {
             eventId: googleEventId
         });
     } catch (error) {
+        if (isGoogleAuthError(error)) {
+            markGoogleTokenExpired();
+            console.warn("Google Calendar token expired or revoked during event deletion.");
+            return;
+        }
         const status = error?.code || error?.response?.status;
         if (status !== 404 && status !== 410) {
             console.error("Error deleting Google Calendar event:", error.message);
@@ -317,12 +412,14 @@ function syncAllUnsyncedTasks() {
     });
 }
 
-app.get('/api/auth/google/status', (req, res) => {
-    res.json({ connected: isGoogleConnected });
+app.get('/api/auth/google/status', async (req, res) => {
+    const status = await verifyGoogleTokenHealth();
+    res.json(status);
 });
 
 app.get('/api/auth/google', (req, res) => {
-    if (isGoogleConnected) {
+    const forceReauth = req.query.reauth === "1" || req.query.reauth === "true";
+    if (isGoogleConnected && !isGoogleTokenExpired && !forceReauth) {
         return res.redirect('/');
     }
 
@@ -460,6 +557,93 @@ app.get('/api/get-tasks', (req, res) => {
     });
 });
 
+// ==========================================
+// Day Tasks (Daily Checklist Notepad) Routes
+// ==========================================
+
+app.get("/api/day-tasks", (req, res) => {
+    const sql = `SELECT * FROM day_tasks ORDER BY completed ASC, id DESC`;
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json((rows || []).map(formatDayTask));
+    });
+});
+
+app.post("/api/day-tasks", (req, res) => {
+    const title = (req.body.title || "").trim();
+    const description = (req.body.description || "").trim();
+
+    if (!title) {
+        return res.status(400).json({ error: "Task name is required" });
+    }
+
+    const sql = `INSERT INTO day_tasks (title, description, completed) VALUES (?, ?, 0)`;
+    db.run(sql, [title, description], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+
+        db.get(`SELECT * FROM day_tasks WHERE id = ?`, [this.lastID], (getErr, row) => {
+            if (getErr) return res.status(500).json({ error: getErr.message });
+            res.status(201).json(formatDayTask(row));
+        });
+    });
+});
+
+app.put("/api/day-tasks/:id", (req, res) => {
+    const taskId = Number(req.params.id);
+    const title = (req.body.title || "").trim();
+    const description = (req.body.description || "").trim();
+
+    if (!title) {
+        return res.status(400).json({ error: "Task name cannot be empty" });
+    }
+
+    const sql = `UPDATE day_tasks SET title = ?, description = ? WHERE id = ?`;
+    db.run(sql, [title, description, taskId], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: "Task not found" });
+
+        db.get(`SELECT * FROM day_tasks WHERE id = ?`, [taskId], (getErr, row) => {
+            if (getErr) return res.status(500).json({ error: getErr.message });
+            res.json(formatDayTask(row));
+        });
+    });
+});
+
+app.patch("/api/day-tasks/:id/toggle", (req, res) => {
+    const taskId = Number(req.params.id);
+
+    db.get(`SELECT * FROM day_tasks WHERE id = ?`, [taskId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Task not found" });
+
+        const nextState = row.completed ? 0 : 1;
+        db.run(`UPDATE day_tasks SET completed = ? WHERE id = ?`, [nextState, taskId], function (updateErr) {
+            if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+            db.get(`SELECT * FROM day_tasks WHERE id = ?`, [taskId], (getErr, updatedRow) => {
+                if (getErr) return res.status(500).json({ error: getErr.message });
+                res.json(formatDayTask(updatedRow));
+            });
+        });
+    });
+});
+
+app.delete("/api/day-tasks/completed", (req, res) => {
+    db.run(`DELETE FROM day_tasks WHERE completed = 1`, [], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ deletedCount: this.changes });
+    });
+});
+
+app.delete("/api/day-tasks/:id", (req, res) => {
+    const taskId = Number(req.params.id);
+    db.run(`DELETE FROM day_tasks WHERE id = ?`, [taskId], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.status(404).json({ error: "Task not found" });
+        res.json({ message: "Task deleted" });
+    });
+});
+
 // Open the server when run directly
 if (require.main === module) {
     app.listen(SERVER_PORT, function(){
@@ -470,10 +654,14 @@ if (require.main === module) {
 module.exports = {
     app,
     db,
+    oauth2Client,
     encryptTokens,
     decryptTokens,
     getGoogleCalendarColorId,
     buildCalendarEventResource,
-    saveTokensToDb
+    saveTokensToDb,
+    isGoogleAuthError,
+    markGoogleTokenExpired,
+    verifyGoogleTokenHealth
 };
 
