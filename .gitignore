@@ -1,4 +1,10 @@
+# SQLite database files
 *.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
 
 # Logs
 logs
