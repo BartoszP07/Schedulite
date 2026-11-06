@@ -178,13 +178,28 @@ describe("Schedulite Frontend — UI, Validation, Sorting & Edit Tests", () => {
             expect(article.dataset.title).toBe("Original Title");
         });
 
-        test("disables Google Calendar button when setGoogleButtonConnected is called", () => {
+        test("disables Google Calendar button and reveals re-authenticate button when setGoogleButtonConnected is called", () => {
             const googleBtn = document.getElementById("google-calendar-btn");
+            const reauthBtn = document.getElementById("google-reauth-btn");
             clientModule.setGoogleButtonConnected();
 
             expect(googleBtn.classList.contains("connected")).toBe(true);
             expect(googleBtn.hasAttribute("href")).toBe(false);
             expect(googleBtn.getAttribute("aria-disabled")).toBe("true");
+            expect(reauthBtn.classList.contains("hidden-btn")).toBe(false);
+            expect(reauthBtn.getAttribute("href")).toBe("/api/auth/google?reauth=1");
+        });
+
+        test("shows expired warning and re-auth link when setGoogleButtonExpired is called", () => {
+            const googleBtn = document.getElementById("google-calendar-btn");
+            const reauthBtn = document.getElementById("google-reauth-btn");
+            clientModule.setGoogleButtonExpired();
+
+            expect(googleBtn.classList.contains("expired")).toBe(true);
+            expect(googleBtn.classList.contains("connected")).toBe(false);
+            expect(googleBtn.getAttribute("href")).toBe("/api/auth/google?reauth=1");
+            expect(googleBtn.textContent).toContain("Expired");
+            expect(reauthBtn.classList.contains("hidden-btn")).toBe(true);
         });
     });
 

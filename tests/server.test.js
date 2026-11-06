@@ -2,10 +2,14 @@ const http = require("http");
 const {
     app,
     db,
+    oauth2Client,
     encryptTokens,
     decryptTokens,
     getGoogleCalendarColorId,
-    buildCalendarEventResource
+    buildCalendarEventResource,
+    saveTokensToDb,
+    isGoogleAuthError,
+    markGoogleTokenExpired
 } = require("../server/server");
 
 // Helper to make HTTP requests against the Express app without extra dependencies
@@ -247,10 +251,32 @@ describe("Schedulite Server — Unit & API Tests", () => {
             expect(delAgainRes.status).toBe(404);
         });
 
-        test("GET /api/auth/google/status returns connection status", async () => {
+        test("GET /api/auth/google/status returns connection and expiry status, and /api/auth/google?reauth=1 forces OAuth redirect", async () => {
             const res = await requestApp(server, "GET", "/api/auth/google/status");
             expect(res.status).toBe(200);
             expect(typeof res.body.connected).toBe("boolean");
+            expect(typeof res.body.expired).toBe("boolean");
+
+            // Simulate expired token state
+            markGoogleTokenExpired();
+            const expiredRes = await requestApp(server, "GET", "/api/auth/google/status");
+            expect(expiredRes.status).toBe(200);
+            expect(expiredRes.body.connected).toBe(false);
+            expect(expiredRes.body.expired).toBe(true);
+
+            // Simulate valid connected token and test forced re-authentication redirect
+            saveTokensToDb({
+                access_token: "ya29.valid_token",
+                refresh_token: "1//valid_refresh",
+                expiry_date: Date.now() + 3600 * 1000
+            });
+            const reauthRes = await requestApp(server, "GET", "/api/auth/google?reauth=1");
+            expect(reauthRes.status).toBe(302);
+            expect(reauthRes.headers.location).toContain("accounts.google.com");
+
+            expect(isGoogleAuthError({ code: 401 })).toBe(true);
+            expect(isGoogleAuthError({ message: "invalid_grant: Token has been expired or revoked." })).toBe(true);
+            expect(isGoogleAuthError({ code: 404 })).toBe(false);
         });
     });
 

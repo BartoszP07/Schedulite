@@ -15,7 +15,10 @@
                 <button type="button" class="app-tab-btn" data-tab="day-tasks">Day Tasks</button>
             </nav>
         </div>
-        <a href="/api/auth/google" id="google-calendar-btn">Connect Google Calendar</a>
+        <div id="google-auth-controls">
+            <a href="/api/auth/google" id="google-calendar-btn">Connect Google Calendar</a>
+            <a href="/api/auth/google?reauth=1" id="google-reauth-btn" class="hidden-btn" title="Re-authenticate Google Calendar token">Re-authenticate</a>
+        </div>
     </header>
 
     <div id="scheduler-tab-view" class="tab-view active-view">

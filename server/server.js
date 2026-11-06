@@ -114,6 +114,29 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 let isGoogleConnected = false;
+let isGoogleTokenExpired = false;
+
+function isGoogleAuthError(error) {
+    if (!error) return false;
+    const status = Number(error?.code || error?.status || error?.response?.status);
+    const errorCode = String(error?.response?.data?.error || "").toLowerCase();
+    const message = String(error?.message || "").toLowerCase();
+
+    return (
+        status === 401 ||
+        errorCode === "invalid_grant" ||
+        errorCode === "invalid_token" ||
+        message.includes("invalid_grant") ||
+        message.includes("invalid credentials") ||
+        message.includes("token has been expired or revoked") ||
+        message.includes("no refresh token is set")
+    );
+}
+
+function markGoogleTokenExpired() {
+    isGoogleConnected = false;
+    isGoogleTokenExpired = true;
+}
 
 function saveTokensToDb(newTokens) {
     // Preserve existing refresh_token if Google only returned a refreshed access_token
@@ -123,6 +146,7 @@ function saveTokensToDb(newTokens) {
     };
     oauth2Client.setCredentials(mergedTokens);
     isGoogleConnected = true;
+    isGoogleTokenExpired = false;
 
     try {
         const encryptedPayload = encryptTokens(mergedTokens);
@@ -136,8 +160,40 @@ function saveTokensToDb(newTokens) {
     }
 }
 
+async function verifyGoogleTokenHealth() {
+    const creds = oauth2Client.credentials || {};
+    if (!creds.access_token && !creds.refresh_token) {
+        return { connected: false, expired: isGoogleTokenExpired };
+    }
+
+    const now = Date.now();
+    const isPastExpiry = creds.expiry_date ? creds.expiry_date <= now + 60 * 1000 : false;
+
+    if (isPastExpiry && !creds.refresh_token) {
+        markGoogleTokenExpired();
+        return { connected: false, expired: true };
+    }
+
+    if (isPastExpiry || !creds.access_token) {
+        try {
+            await oauth2Client.getAccessToken();
+            isGoogleConnected = true;
+            isGoogleTokenExpired = false;
+        } catch (error) {
+            if (isGoogleAuthError(error)) {
+                markGoogleTokenExpired();
+            }
+        }
+    }
+
+    return {
+        connected: isGoogleConnected && !isGoogleTokenExpired,
+        expired: isGoogleTokenExpired
+    };
+}
+
 function loadSavedTokensFromDb() {
-    db.get(`SELECT encrypted_tokens FROM google_tokens WHERE id = 1`, [], (err, row) => {
+    db.get(`SELECT encrypted_tokens FROM google_tokens WHERE id = 1`, [], async (err, row) => {
         if (err) {
             console.error("Error reading Google tokens from DB:", err.message);
             return;
@@ -148,8 +204,12 @@ function loadSavedTokensFromDb() {
             const tokens = decryptTokens(row.encrypted_tokens);
             oauth2Client.setCredentials(tokens);
             isGoogleConnected = true;
+            isGoogleTokenExpired = false;
             console.log("Loaded saved Google OAuth tokens from database.");
-            syncAllUnsyncedTasks();
+            const health = await verifyGoogleTokenHealth();
+            if (health.connected) {
+                syncAllUnsyncedTasks();
+            }
         } catch (error) {
             console.error("Failed to decrypt saved Google tokens:", error.message);
         }
@@ -268,6 +328,11 @@ async function syncTaskWithGoogleCalendar(taskId) {
                 });
                 return;
             } catch (updateErr) {
+                if (isGoogleAuthError(updateErr)) {
+                    markGoogleTokenExpired();
+                    console.warn("Google Calendar token expired or revoked during event update.");
+                    return;
+                }
                 const status = updateErr?.code || updateErr?.response?.status;
                 // Only create a new event if the old one was deleted from Google Calendar (404 / 410)
                 if (status !== 404 && status !== 410) {
@@ -306,7 +371,12 @@ async function syncTaskWithGoogleCalendar(taskId) {
             db.run(`UPDATE tasks SET google_event_id = ? WHERE id = ?`, [newEventId, numericId]);
         }
     } catch (error) {
-        console.error(`Error syncing task ${numericId} with Google Calendar:`, error.message);
+        if (isGoogleAuthError(error)) {
+            markGoogleTokenExpired();
+            console.warn(`Google Calendar token expired or revoked while syncing task ${numericId}.`);
+        } else {
+            console.error(`Error syncing task ${numericId} with Google Calendar:`, error.message);
+        }
     } finally {
         syncingTaskIds.delete(numericId);
     }
@@ -320,6 +390,11 @@ async function deleteGoogleCalendarEvent(googleEventId) {
             eventId: googleEventId
         });
     } catch (error) {
+        if (isGoogleAuthError(error)) {
+            markGoogleTokenExpired();
+            console.warn("Google Calendar token expired or revoked during event deletion.");
+            return;
+        }
         const status = error?.code || error?.response?.status;
         if (status !== 404 && status !== 410) {
             console.error("Error deleting Google Calendar event:", error.message);
@@ -337,12 +412,14 @@ function syncAllUnsyncedTasks() {
     });
 }
 
-app.get('/api/auth/google/status', (req, res) => {
-    res.json({ connected: isGoogleConnected });
+app.get('/api/auth/google/status', async (req, res) => {
+    const status = await verifyGoogleTokenHealth();
+    res.json(status);
 });
 
 app.get('/api/auth/google', (req, res) => {
-    if (isGoogleConnected) {
+    const forceReauth = req.query.reauth === "1" || req.query.reauth === "true";
+    if (isGoogleConnected && !isGoogleTokenExpired && !forceReauth) {
         return res.redirect('/');
     }
 
@@ -577,10 +654,14 @@ if (require.main === module) {
 module.exports = {
     app,
     db,
+    oauth2Client,
     encryptTokens,
     decryptTokens,
     getGoogleCalendarColorId,
     buildCalendarEventResource,
-    saveTokensToDb
+    saveTokensToDb,
+    isGoogleAuthError,
+    markGoogleTokenExpired,
+    verifyGoogleTokenHealth
 };
 

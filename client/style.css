@@ -97,7 +97,14 @@ body{
     display: none !important;
 }
 
-/* Google Calendar Connect Button */
+/* Google Calendar Connect & Re-auth Controls */
+#google-auth-controls{
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
 #google-calendar-btn{
     position: relative;
     display: inline-block;
@@ -147,6 +154,49 @@ body{
     content: "✓ ";
     font-style: normal;
     font-weight: 900;
+}
+
+/* Expired state: add class "expired" to #google-calendar-btn */
+#google-calendar-btn.expired{
+    background: var(--high-priority-colour);
+    color: var(--text-colour);
+    text-shadow: none;
+    box-shadow: var(--shadow-offset);
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+#google-calendar-btn.expired::before{
+    content: "⚠ ";
+    font-style: normal;
+    font-weight: 900;
+}
+
+#google-reauth-btn{
+    display: inline-block;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    padding: 0.45rem 0.9rem;
+    border-radius: 2rem;
+    border: var(--border-width) solid var(--border-colour);
+    background-color: var(--section-background-colour);
+    color: var(--text-colour);
+    font-weight: 700;
+    font-size: 0.88rem;
+    box-shadow: var(--shadow-offset-sm);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease;
+}
+
+#google-reauth-btn:hover{
+    background-color: var(--medium-priority-colour);
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0px var(--border-colour);
+}
+
+#google-reauth-btn:active{
+    transform: translate(1px, 1px);
+    box-shadow: 0px 0px 0px var(--border-colour);
 }
 
 button{
@@ -1016,7 +1066,8 @@ input[type="time"].edit-task-input {
         margin-bottom: 0;
     }
 
-    #google-calendar-btn {
+    #google-calendar-btn,
+    #google-reauth-btn {
         width: auto;
         max-width: none;
         padding: 0.35rem 0.75rem;

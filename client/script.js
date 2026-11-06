@@ -508,6 +508,9 @@ async function saveTaskEdits(article) {
     if (taskId) {
         try {
             await updateTaskOnServer(taskId, updatedData);
+            if (!isTestEnv) {
+                setTimeout(() => checkGoogleConnectionStatus(), 800);
+            }
         } catch (error) {
             console.error("Error updating task on server:", error);
         }
@@ -835,6 +838,9 @@ async function handleCreateTask() {
     try {
         const result = await saveTaskToServer(values);
         createdTaskId = result.taskId;
+        if (!isTestEnv) {
+            setTimeout(() => checkGoogleConnectionStatus(), 800);
+        }
     } catch (error) {
         console.error("Error saving task to server:", error);
     }
@@ -877,13 +883,44 @@ if (!isTestEnv) {
 
 // Google Calendar connection status check
 const googleCalendarBtn = document.getElementById("google-calendar-btn");
+const googleReauthBtn = document.getElementById("google-reauth-btn");
 
 function setGoogleButtonConnected() {
     if (!googleCalendarBtn) return;
+    googleCalendarBtn.classList.remove("expired");
     googleCalendarBtn.classList.add("connected");
     googleCalendarBtn.textContent = "Google Calendar Connected";
     googleCalendarBtn.removeAttribute("href");
     googleCalendarBtn.setAttribute("aria-disabled", "true");
+
+    if (googleReauthBtn) {
+        googleReauthBtn.classList.remove("hidden-btn");
+    }
+}
+
+function setGoogleButtonExpired() {
+    if (!googleCalendarBtn) return;
+    googleCalendarBtn.classList.remove("connected");
+    googleCalendarBtn.classList.add("expired");
+    googleCalendarBtn.textContent = "Google Token Expired — Re-authenticate";
+    googleCalendarBtn.setAttribute("href", "/api/auth/google?reauth=1");
+    googleCalendarBtn.removeAttribute("aria-disabled");
+
+    if (googleReauthBtn) {
+        googleReauthBtn.classList.add("hidden-btn");
+    }
+}
+
+function setGoogleButtonDisconnected() {
+    if (!googleCalendarBtn) return;
+    googleCalendarBtn.classList.remove("connected", "expired");
+    googleCalendarBtn.textContent = "Connect Google Calendar";
+    googleCalendarBtn.setAttribute("href", "/api/auth/google");
+    googleCalendarBtn.removeAttribute("aria-disabled");
+
+    if (googleReauthBtn) {
+        googleReauthBtn.classList.add("hidden-btn");
+    }
 }
 
 if (googleCalendarBtn) {
@@ -905,8 +942,12 @@ async function checkGoogleConnectionStatus() {
         const response = await fetch("/api/auth/google/status");
         if (!response.ok) return;
         const data = await response.json();
-        if (data.connected) {
+        if (data.expired) {
+            setGoogleButtonExpired();
+        } else if (data.connected) {
             setGoogleButtonConnected();
+        } else {
+            setGoogleButtonDisconnected();
         }
     } catch (error) {
         console.error("Error checking Google Calendar connection status:", error);
@@ -1254,6 +1295,9 @@ if (typeof module !== "undefined" && module.exports) {
         updateScheduleButtonState,
         handleCreateTask,
         setGoogleButtonConnected,
+        setGoogleButtonExpired,
+        setGoogleButtonDisconnected,
+        checkGoogleConnectionStatus,
         switchAppTab,
         renderDayTasks,
         setDayTasksState: (items) => {
