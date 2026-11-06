@@ -1300,6 +1300,44 @@ if (!isTestEnv) {
     loadDayTasksFromServer();
 }
 
+// ==========================================
+// Dark Mode Theme Toggle
+// ==========================================
+const themeToggleBtn = document.getElementById("theme-toggle-btn");
+
+function applyTheme(isDark) {
+    document.body.classList.toggle("dark-mode", Boolean(isDark));
+    if (themeToggleBtn) {
+        themeToggleBtn.textContent = isDark ? "☀️ Light" : "🌙 Dark";
+        themeToggleBtn.setAttribute("aria-pressed", String(Boolean(isDark)));
+    }
+    try {
+        localStorage.setItem("schedulite_theme", isDark ? "dark" : "light");
+    } catch (_) {
+        // Ignore storage errors
+    }
+}
+
+function toggleTheme() {
+    const nextDark = !document.body.classList.contains("dark-mode");
+    applyTheme(nextDark);
+}
+
+if (themeToggleBtn) {
+    themeToggleBtn.addEventListener("click", toggleTheme);
+}
+
+try {
+    const savedTheme = localStorage.getItem("schedulite_theme");
+    if (savedTheme === "dark") {
+        applyTheme(true);
+    } else if (savedTheme === "light") {
+        applyTheme(false);
+    }
+} catch (_) {
+    // Ignore storage errors
+}
+
 if (typeof module !== "undefined" && module.exports) {
     module.exports = {
         openMobileTaskSheet,
@@ -1327,6 +1365,8 @@ if (typeof module !== "undefined" && module.exports) {
         checkGoogleConnectionStatus,
         switchAppTab,
         renderDayTasks,
+        applyTheme,
+        toggleTheme,
         setDayTasksState: (items) => {
             dayTasksState = Array.isArray(items) ? items : [];
             renderDayTasks();

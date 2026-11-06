@@ -236,6 +236,21 @@ describe("Schedulite Frontend — UI, Validation, Sorting & Edit Tests", () => {
             expect(items[0].querySelector(".pinned-task-badge")?.textContent).toBe("Pinned");
             expect(items[2].classList.contains("completed")).toBe(true);
         });
+
+        test("toggles dark mode and persists theme preference in localStorage", () => {
+            const themeBtn = document.getElementById("theme-toggle-btn");
+            expect(document.body.classList.contains("dark-mode")).toBe(false);
+
+            clientModule.toggleTheme();
+            expect(document.body.classList.contains("dark-mode")).toBe(true);
+            expect(themeBtn.textContent).toContain("Light");
+            expect(localStorage.getItem("schedulite_theme")).toBe("dark");
+
+            clientModule.toggleTheme();
+            expect(document.body.classList.contains("dark-mode")).toBe(false);
+            expect(themeBtn.textContent).toContain("Dark");
+            expect(localStorage.getItem("schedulite_theme")).toBe("light");
+        });
     });
 });
 

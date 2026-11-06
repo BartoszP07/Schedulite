@@ -14,12 +14,45 @@
     --invalid-task-colour: rgb(150, 0, 0);
     --valid-task-colour: rgb(0, 150, 0);
     --task-background-colour: rgb(225, 225, 225);
+    --task-editing-bg: rgb(210, 210, 210);
+    --info-holder-bg: rgb(255, 255, 255);
+    --field-error-bg: rgb(255, 240, 240);
+    --completed-day-task-bg: rgb(242, 242, 242);
+    --pinned-day-task-bg: rgb(255, 248, 232);
+    --dashed-border-colour: rgba(0, 0, 0, 0.25);
     --high-priority-colour: rgb(255, 92, 92);
     --medium-priority-colour: rgb(255, 170, 71);
     --low-priority-colour: rgb(105, 224, 105);
     --delete-button-colour: rgb(255, 143, 143);
+    --badge-text-colour: rgb(0, 0, 0);
     --shadow-offset: 3px 3px 0px var(--border-colour);
     --shadow-offset-sm: 2px 2px 0px var(--border-colour);
+}
+
+body.dark-mode{
+    color-scheme: dark;
+    --background-colour: rgb(18, 19, 23);
+    --text-colour: rgb(242, 244, 248);
+    --accent-colour: rgb(215, 220, 230);
+    --input-background-colour: rgb(32, 35, 42);
+    --section-background-colour: rgb(26, 28, 34);
+    --border-colour: rgb(215, 220, 230);
+    --invalid-task-colour: rgb(195, 45, 45);
+    --valid-task-colour: rgb(35, 165, 75);
+    --task-background-colour: rgb(36, 39, 48);
+    --task-editing-bg: rgb(46, 50, 62);
+    --info-holder-bg: rgb(28, 31, 38);
+    --field-error-bg: rgb(70, 28, 32);
+    --completed-day-task-bg: rgb(28, 30, 37);
+    --pinned-day-task-bg: rgb(52, 43, 26);
+    --dashed-border-colour: rgba(255, 255, 255, 0.25);
+    --high-priority-colour: rgb(235, 82, 82);
+    --medium-priority-colour: rgb(240, 158, 58);
+    --low-priority-colour: rgb(78, 204, 102);
+    --delete-button-colour: rgb(225, 95, 95);
+    --badge-text-colour: rgb(15, 16, 20);
+    --shadow-offset: 3px 3px 0px rgb(0, 0, 0);
+    --shadow-offset-sm: 2px 2px 0px rgb(0, 0, 0);
 }
 
 /* Set a style for every element */
@@ -142,7 +175,7 @@ body{
 #google-calendar-btn.connected:hover,
 #google-calendar-btn.connected:active{
     background: var(--low-priority-colour);
-    color: var(--text-colour);
+    color: var(--badge-text-colour);
     text-shadow: none;
     box-shadow: var(--shadow-offset-sm);
     transform: none;
@@ -154,12 +187,13 @@ body{
     content: "✓ ";
     font-style: normal;
     font-weight: 900;
+    color: var(--badge-text-colour);
 }
 
 /* Expired state: add class "expired" to #google-calendar-btn */
 #google-calendar-btn.expired{
     background: var(--high-priority-colour);
-    color: var(--text-colour);
+    color: var(--badge-text-colour);
     text-shadow: none;
     box-shadow: var(--shadow-offset);
     pointer-events: auto;
@@ -170,6 +204,19 @@ body{
     content: "⚠ ";
     font-style: normal;
     font-weight: 900;
+    color: var(--badge-text-colour);
+}
+
+#theme-toggle-btn{
+    padding: 0.45rem 0.9rem;
+    border-radius: 2rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    background-color: var(--section-background-colour);
+    color: var(--text-colour);
+    border: var(--border-width) solid var(--border-colour);
+    box-shadow: var(--shadow-offset-sm);
+    cursor: pointer;
 }
 
 #google-reauth-btn{
@@ -366,7 +413,7 @@ button.valid-task-input{
 .task-input-text.field-error,
 .edit-task-input.field-error {
     border-color: var(--invalid-task-colour);
-    background-color: rgb(255, 240, 240);
+    background-color: var(--field-error-bg);
 }
 
 @keyframes shakeError {
@@ -418,17 +465,17 @@ button.valid-task-input{
 
 .filter-pill.filter-high.active-filter {
     background-color: var(--high-priority-colour);
-    color: var(--text-colour);
+    color: var(--badge-text-colour);
 }
 
 .filter-pill.filter-medium.active-filter {
     background-color: var(--medium-priority-colour);
-    color: var(--text-colour);
+    color: var(--badge-text-colour);
 }
 
 .filter-pill.filter-low.active-filter {
     background-color: var(--low-priority-colour);
-    color: var(--text-colour);
+    color: var(--badge-text-colour);
 }
 
 #empty-tasks-message {
@@ -438,7 +485,7 @@ button.valid-task-input{
     font-size: 1.05rem;
     font-weight: 600;
     opacity: 0.65;
-    border: 2px dashed rgba(0, 0, 0, 0.25);
+    border: 2px dashed var(--dashed-border-colour);
     border-radius: var(--input-border-rad);
 }
 
@@ -451,6 +498,7 @@ button.valid-task-input{
     font-size: 0.82rem;
     margin-right: 0.35rem;
     box-shadow: 1px 1px 0px var(--border-colour);
+    color: var(--badge-text-colour);
 }
 
 .deadline-badge.overdue-badge {
@@ -496,7 +544,7 @@ button.valid-task-input{
     border: var(--border-width) solid var(--border-colour);
     border-left: 7px solid var(--task-custom-colour, var(--border-colour));
     border-radius: calc(var(--input-border-rad) - 0.2rem);
-    background-color: white;
+    background-color: var(--info-holder-bg);
     cursor: pointer;
     transition: background-color 0.15s ease;
 }
@@ -534,6 +582,7 @@ button.valid-task-input{
 
 .task-article:not(.is-editing) .info-holder:hover::after {
     background-color: var(--low-priority-colour);
+    color: var(--badge-text-colour);
 }
 
 .task-article.is-expanded:not(.is-editing) .info-holder::after {
@@ -541,6 +590,7 @@ button.valid-task-input{
     top: 1.15rem;
     transform: none;
     background-color: var(--low-priority-colour);
+    color: var(--badge-text-colour);
 }
 
 /* Expanded Task View (full length title, description, and metadata) */
@@ -588,7 +638,7 @@ button.valid-task-input{
 
 .task-article.is-expanded:not(.is-editing) .task-info:nth-child(2) {
     padding-bottom: 0.65rem;
-    border-bottom: 1.5px dashed rgba(0, 0, 0, 0.25);
+    border-bottom: 1.5px dashed var(--dashed-border-colour);
 }
 
 .task-article.is-expanded:not(.is-editing) .task-info:nth-child(2)::before {
@@ -645,6 +695,7 @@ p.priority-text{
     font-weight: 700;
     font-size: 0.9rem;
     box-shadow: 1px 1px 0px var(--border-colour);
+    color: var(--badge-text-colour);
 }
 
 p.high-priority{
@@ -674,15 +725,18 @@ p.low-priority{
 
 .ammend-task-btn.complete{
     background-color: var(--low-priority-colour);
+    color: var(--badge-text-colour);
     font-weight: 700;
 }
 
 .ammend-task-btn.delete{
     background-color: var(--delete-button-colour);
+    color: var(--badge-text-colour);
 }
 
 .ammend-task-btn.save-btn{
     background-color: var(--low-priority-colour);
+    color: var(--badge-text-colour);
     font-weight: 800;
 }
 
@@ -692,7 +746,7 @@ p.low-priority{
 
 /* In-place Edit Task Mode */
 .task-article.is-editing {
-    background-color: rgb(210, 210, 210);
+    background-color: var(--task-editing-bg);
     box-shadow: var(--shadow-offset);
     transform: translate(-1px, -1px);
 }
@@ -759,14 +813,17 @@ input[type="time"].edit-task-input {
 
 .edit-priority-select.high-priority {
     background-color: var(--high-priority-colour);
+    color: var(--badge-text-colour);
 }
 
 .edit-priority-select.medium-priority {
     background-color: var(--medium-priority-colour);
+    color: var(--badge-text-colour);
 }
 
 .edit-priority-select.low-priority {
     background-color: var(--low-priority-colour);
+    color: var(--badge-text-colour);
 }
 
 /* ==========================================
@@ -827,7 +884,7 @@ input[type="time"].edit-task-input {
     font-size: 1.05rem;
     font-weight: 600;
     opacity: 0.65;
-    border: 2px dashed rgba(0, 0, 0, 0.25);
+    border: 2px dashed var(--dashed-border-colour);
     border-radius: var(--input-border-rad);
 }
 
@@ -858,13 +915,13 @@ input[type="time"].edit-task-input {
 }
 
 .day-task-item.completed {
-    background-color: rgb(242, 242, 242);
+    background-color: var(--completed-day-task-bg);
     opacity: 0.82;
 }
 
 .day-task-item.pinned {
     border-left: 7px solid var(--medium-priority-colour);
-    background-color: rgb(255, 248, 232);
+    background-color: var(--pinned-day-task-bg);
 }
 
 .pinned-task-badge {
@@ -874,6 +931,7 @@ input[type="time"].edit-task-input {
     border: 1.5px solid var(--border-colour);
     border-radius: 1rem;
     background-color: var(--medium-priority-colour);
+    color: var(--badge-text-colour);
     font-weight: 800;
     font-size: 0.78rem;
     box-shadow: 1px 1px 0px var(--border-colour);
@@ -882,6 +940,7 @@ input[type="time"].edit-task-input {
 
 .day-pin-btn.active-pin {
     background-color: var(--medium-priority-colour);
+    color: var(--badge-text-colour);
     font-weight: 800;
 }
 
@@ -1006,7 +1065,7 @@ input[type="time"].edit-task-input {
     .task-info:nth-child(2) {
         grid-column: 1 / -1;
         padding-bottom: 0.4rem;
-        border-bottom: 1.5px dashed rgba(0, 0, 0, 0.25);
+        border-bottom: 1.5px dashed var(--dashed-border-colour);
     }
 
     .task-info:nth-child(1) p,
@@ -1087,7 +1146,8 @@ input[type="time"].edit-task-input {
     }
 
     #google-calendar-btn,
-    #google-reauth-btn {
+    #google-reauth-btn,
+    #theme-toggle-btn {
         width: auto;
         max-width: none;
         padding: 0.35rem 0.75rem;
