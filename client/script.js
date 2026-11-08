@@ -75,6 +75,15 @@ function getDeadlineBadgeInfo(deadlineStr, startTimeStr) {
         return { text: "Tomorrow", className: "tomorrow-badge" };
     }
 
+    // Calculate countdown in days from local midnight today to local midnight of deadline
+    const todayMidnight = new Date(`${todayStr}T00:00:00`);
+    const deadlineMidnight = new Date(`${deadlineStr}T00:00:00`);
+    const diffDays = Math.round((deadlineMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 1) {
+        return { text: `${diffDays} days left`, className: "countdown-badge" };
+    }
+
     return null;
 }
 
