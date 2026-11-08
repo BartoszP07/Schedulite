@@ -58,8 +58,9 @@
                     <input type="text" id="task-duration-inp" class="task-input-text">
                 </div>
                 <div class="input-label-holder">
-                    <label for="task-colour-inp" class="input-label">Colour</label>
-                    <input type="color" id="task-colour-inp" class="task-input-text task-colour-input" value="#4285f4">
+                    <span class="input-label">Colour</span>
+                    <input type="hidden" id="task-colour-inp" class="task-colour-input" value="#4285f4">
+                    <div id="task-colour-swatches" class="colour-swatch-group" role="radiogroup" aria-label="Task colour"></div>
                 </div>
             </div>
 
@@ -95,6 +96,11 @@
                     <div class="input-label-holder">
                         <label for="day-task-desc-inp" class="input-label">Note / Description (optional)</label>
                         <input type="text" id="day-task-desc-inp" class="task-input-text" placeholder="Extra details or quick note...">
+                    </div>
+                    <div class="input-label-holder">
+                        <span class="input-label">Colour (optional)</span>
+                        <input type="hidden" id="day-task-colour-inp" value="">
+                        <div id="day-task-colour-swatches" class="colour-swatch-group" role="radiogroup" aria-label="Task colour"></div>
                     </div>
                 </div>
                 <button type="submit" id="add-day-task-btn" class="valid-task-input">Add Task</button>

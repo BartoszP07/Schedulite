@@ -301,6 +301,61 @@ function renderTaskInfoView(article, data) {
     infoCells[6].appendChild(colourSwatch);
 }
 
+// Preset task colours (based on Google Calendar's palette so synced events match)
+const DEFAULT_TASK_COLOUR = "#4285f4";
+const TASK_COLOUR_PRESETS = [
+    { name: "Blue", hex: "#4285f4" },
+    { name: "Lavender", hex: "#7986cb" },
+    { name: "Grape", hex: "#8e24aa" },
+    { name: "Flamingo", hex: "#e67c73" },
+    { name: "Tomato", hex: "#d50000" },
+    { name: "Tangerine", hex: "#f4511e" },
+    { name: "Banana", hex: "#f6bf26" },
+    { name: "Sage", hex: "#33b679" },
+    { name: "Basil", hex: "#0b8043" },
+    { name: "Graphite", hex: "#616161" }
+];
+
+// Renders preset swatch buttons into `container`, storing the selection in `hiddenInput`
+function buildColourSwatches(container, hiddenInput, onChange, options = {}) {
+    if (!container || !hiddenInput) return;
+    container.querySelectorAll(".colour-swatch").forEach((el) => el.remove());
+
+    const sync = () => {
+        const current = (hiddenInput.value || "").toLowerCase();
+        container.querySelectorAll(".colour-swatch").forEach((btn) => {
+            const selected = btn.dataset.colour === current;
+            btn.classList.toggle("selected", selected);
+            btn.setAttribute("aria-checked", String(selected));
+        });
+    };
+
+    const presets = options.includeNone
+        ? [{ name: "No colour", hex: "" }, ...TASK_COLOUR_PRESETS]
+        : TASK_COLOUR_PRESETS;
+
+    presets.forEach(({ name, hex }) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = hex ? "colour-swatch" : "colour-swatch no-colour";
+        btn.dataset.colour = hex;
+        if (hex) btn.style.backgroundColor = hex;
+        btn.title = name;
+        btn.setAttribute("role", "radio");
+        btn.setAttribute("aria-label", name);
+        btn.addEventListener("click", () => {
+            hiddenInput.value = hex;
+            sync();
+            hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
+            if (onChange) onChange(hex);
+        });
+        container.appendChild(btn);
+    });
+
+    hiddenInput._syncSwatches = sync;
+    sync();
+}
+
 function createFieldWrapper(labelText, inputElement) {
     const wrapper = document.createElement("div");
     wrapper.className = "edit-field-wrapper";
@@ -401,17 +456,20 @@ function enterTaskEditMode(article) {
     infoCells[5].innerHTML = "";
     infoCells[5].appendChild(createFieldWrapper("Duration (hrs)", durationInput));
 
-    // 7. Colour input
+    // 7. Colour preset swatches (hidden input stores the chosen hex)
     const colourInput = document.createElement("input");
-    colourInput.type = "color";
+    colourInput.type = "hidden";
     colourInput.className = "edit-task-input edit-colour-input";
     colourInput.dataset.editField = "colour";
-    colourInput.value = currentData.colour || "#4285f4";
-    colourInput.addEventListener("input", () => {
-        infoHolder.style.setProperty("--task-custom-colour", colourInput.value);
+    colourInput.value = currentData.colour || DEFAULT_TASK_COLOUR;
+    const colourGroup = document.createElement("div");
+    colourGroup.className = "colour-swatch-group compact";
+    colourGroup.appendChild(colourInput);
+    buildColourSwatches(colourGroup, colourInput, (hex) => {
+        infoHolder.style.setProperty("--task-custom-colour", hex);
     });
     infoCells[6].innerHTML = "";
-    infoCells[6].appendChild(createFieldWrapper("Colour", colourInput));
+    infoCells[6].appendChild(createFieldWrapper("Colour", colourGroup));
 
     // Swap Edit button to Save and add Cancel button
     const editBtn = article.querySelector("#edit-task-btn, .edit-task-btn");
@@ -655,6 +713,8 @@ const new_task_duration_input = document.getElementById("task-duration-inp");
 const new_task_colour_input = document.getElementById("task-colour-inp");
 const create_task_btn = document.getElementById("create-task-btn");
 
+buildColourSwatches(document.getElementById("task-colour-swatches"), new_task_colour_input);
+
 const newTaskInputs = [
     new_task_title_input,
     new_task_description_input,
@@ -870,7 +930,10 @@ async function handleCreateTask() {
     if (new_task_deadline_input) new_task_deadline_input.value = "";
     if (new_task_starttime_input) new_task_starttime_input.value = "";
     if (new_task_duration_input) new_task_duration_input.value = "";
-    if (new_task_colour_input) new_task_colour_input.value = "#4285f4";
+    if (new_task_colour_input) {
+        new_task_colour_input.value = DEFAULT_TASK_COLOUR;
+        new_task_colour_input._syncSwatches?.();
+    }
 
     newTaskInputs.forEach((inputEl) => inputEl.classList.remove("field-error"));
     updateScheduleButtonState();
@@ -1060,8 +1123,10 @@ function renderDayTasks() {
         const classes = ["day-task-item"];
         if (task.completed) classes.push("completed");
         if (task.pinned) classes.push("pinned");
+        if (task.colour) classes.push("has-colour");
         li.className = classes.join(" ");
         li.dataset.dayTaskId = task.id;
+        if (task.colour) li.style.setProperty("--day-task-colour", task.colour);
 
         const leftDiv = document.createElement("div");
         leftDiv.className = "day-task-left";
@@ -1156,6 +1221,19 @@ function enterDayTaskEditMode(li, task) {
 
     editBox.appendChild(editTitle);
     editBox.appendChild(editDesc);
+
+    const editColour = document.createElement("input");
+    editColour.type = "hidden";
+    editColour.value = task.colour || "";
+    const colourGroup = document.createElement("div");
+    colourGroup.className = "colour-swatch-group compact";
+    colourGroup.appendChild(editColour);
+    buildColourSwatches(colourGroup, editColour, (hex) => {
+        li.classList.toggle("has-colour", Boolean(hex));
+        li.style.setProperty("--day-task-colour", hex || "transparent");
+    }, { includeNone: true });
+    editBox.appendChild(colourGroup);
+
     leftDiv.appendChild(editBox);
 
     const saveBtn = document.createElement("button");
@@ -1176,7 +1254,7 @@ function enterDayTaskEditMode(li, task) {
             editTitle.focus();
             return;
         }
-        await updateDayTask(task.id, updatedTitle, updatedDesc);
+        await updateDayTask(task.id, updatedTitle, updatedDesc, editColour.value);
     };
 
     saveBtn.addEventListener("click", submitEdit);
@@ -1208,11 +1286,11 @@ async function loadDayTasksFromServer() {
     }
 }
 
-async function createDayTask(title, description) {
+async function createDayTask(title, description, colour = "") {
     const res = await fetch("/api/day-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description })
+        body: JSON.stringify({ title, description, colour })
     });
     if (!res.ok) throw new Error("Failed to create day task");
     await loadDayTasksFromServer();
@@ -1238,14 +1316,23 @@ async function togglePinDayTask(id) {
     }
 }
 
-async function updateDayTask(id, title, description) {
+async function updateDayTask(id, title, description, colour) {
     try {
         const res = await fetch(`/api/day-tasks/${encodeURIComponent(id)}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, description })
+            body: JSON.stringify({ title, description, colour })
         });
         if (!res.ok) throw new Error("Failed to update day task");
+        const saved = await res.json().catch(() => null);
+        if (saved && colour !== undefined && saved.colour === undefined) {
+            console.warn("Server didn't return a colour — restart the server to pick up the day task colour changes.");
+        }
+        // Apply the saved task straight away so styling updates even before the reload finishes
+        dayTasksState = dayTasksState.map((t) =>
+            String(t.id) === String(id) ? { ...t, title, description, colour: colour ?? t.colour, ...(saved || {}) } : t
+        );
+        renderDayTasks();
         await loadDayTasksFromServer();
     } catch (err) {
         console.error("Error updating day task:", err);
@@ -1272,11 +1359,15 @@ async function clearCompletedDayTasks() {
     }
 }
 
+const dayTaskColourInput = document.getElementById("day-task-colour-inp");
+buildColourSwatches(document.getElementById("day-task-colour-swatches"), dayTaskColourInput, null, { includeNone: true });
+
 if (addDayTaskForm) {
     addDayTaskForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const title = dayTaskTitleInput?.value.trim() || "";
         const description = dayTaskDescInput?.value.trim() || "";
+        const colour = dayTaskColourInput?.value || "";
         if (!title) {
             dayTaskTitleInput?.classList.add("field-error");
             return;
@@ -1284,9 +1375,13 @@ if (addDayTaskForm) {
         dayTaskTitleInput?.classList.remove("field-error");
 
         try {
-            await createDayTask(title, description);
+            await createDayTask(title, description, colour);
             if (dayTaskTitleInput) dayTaskTitleInput.value = "";
             if (dayTaskDescInput) dayTaskDescInput.value = "";
+            if (dayTaskColourInput) {
+                dayTaskColourInput.value = "";
+                dayTaskColourInput._syncSwatches?.();
+            }
             dayTaskTitleInput?.focus();
         } catch (err) {
             console.error("Error adding day task:", err);

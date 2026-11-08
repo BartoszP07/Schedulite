@@ -66,12 +66,20 @@ db.serialize(() => {
         description TEXT DEFAULT '',
         completed INTEGER DEFAULT 0,
         pinned INTEGER DEFAULT 0,
+        colour TEXT DEFAULT '',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, () => {
-        // Ensure existing databases have the pinned column
+        // Ensure existing databases have the pinned and colour columns
         db.run(`ALTER TABLE day_tasks ADD COLUMN pinned INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE day_tasks ADD COLUMN colour TEXT DEFAULT ''`, () => {});
     });
 });
+
+// Accepts "#rrggbb" or "" (no colour); anything else is treated as no colour
+function normaliseDayTaskColour(value) {
+    const str = typeof value === "string" ? value.trim() : "";
+    return /^#[0-9A-Fa-f]{6}$/.test(str) ? str.toLowerCase() : "";
+}
 
 function formatDayTask(row) {
     if (!row) return null;
@@ -81,6 +89,7 @@ function formatDayTask(row) {
         description: row.description || "",
         completed: Boolean(row.completed),
         pinned: Boolean(row.pinned),
+        colour: row.colour || "",
         created_at: row.created_at
     };
 }
@@ -583,8 +592,8 @@ app.post("/api/day-tasks", (req, res) => {
         return res.status(400).json({ error: "Task name is required" });
     }
 
-    const sql = `INSERT INTO day_tasks (title, description, completed) VALUES (?, ?, 0)`;
-    db.run(sql, [title, description], function (err) {
+    const sql = `INSERT INTO day_tasks (title, description, completed, colour) VALUES (?, ?, 0, ?)`;
+    db.run(sql, [title, description, normaliseDayTaskColour(req.body.colour)], function (err) {
         if (err) return res.status(500).json({ error: err.message });
 
         db.get(`SELECT * FROM day_tasks WHERE id = ?`, [this.lastID], (getErr, row) => {
@@ -603,8 +612,10 @@ app.put("/api/day-tasks/:id", (req, res) => {
         return res.status(400).json({ error: "Task name cannot be empty" });
     }
 
-    const sql = `UPDATE day_tasks SET title = ?, description = ? WHERE id = ?`;
-    db.run(sql, [title, description, taskId], function (err) {
+    // Keep the existing colour if the client didn't send one
+    const colour = req.body.colour === undefined ? null : normaliseDayTaskColour(req.body.colour);
+    const sql = `UPDATE day_tasks SET title = ?, description = ?, colour = COALESCE(?, colour) WHERE id = ?`;
+    db.run(sql, [title, description, colour, taskId], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: "Task not found" });
 

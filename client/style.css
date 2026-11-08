@@ -1391,3 +1391,61 @@ input[type="time"].edit-task-input {
     }
 }
 
+
+
+/* Preset colour swatches */
+.colour-swatch-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+    padding: 0.25rem 0;
+}
+
+.colour-swatch {
+    width: 1.6rem;
+    height: 1.6rem;
+    padding: 0;
+    border-radius: 50%;
+    border: var(--border-width) solid var(--border-colour);
+    box-shadow: 1px 1px 0px var(--border-colour);
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.colour-swatch-group.compact .colour-swatch {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.colour-swatch:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 2px 2px 0px var(--border-colour);
+}
+
+.colour-swatch.selected {
+    outline: 2.5px solid var(--text-colour);
+    outline-offset: 2px;
+    transform: scale(1.1);
+}
+
+/* "No colour" swatch: diagonal strike-through */
+.colour-swatch.no-colour {
+    background: linear-gradient(135deg, transparent 45%, var(--high-priority-colour) 45%, var(--high-priority-colour) 55%, transparent 55%), var(--input-background-colour);
+}
+
+/* Colour-coded day tasks: tinted background + coloured outline (tint keeps text readable in both themes) */
+.day-task-item.has-colour {
+    border-color: var(--day-task-colour);
+    border-left: 7px solid var(--day-task-colour);
+    background-color: color-mix(in srgb, var(--day-task-colour) 35%, var(--task-background-colour));
+    box-shadow: 3px 3px 0px var(--day-task-colour);
+}
+
+.day-task-item.has-colour.completed {
+    background-color: color-mix(in srgb, var(--day-task-colour) 15%, var(--completed-day-task-bg));
+}
+
+.day-edit-inputs .colour-swatch-group {
+    padding-top: 0.35rem;
+}
