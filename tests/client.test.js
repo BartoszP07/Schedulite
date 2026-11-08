@@ -59,6 +59,15 @@ describe("Schedulite Frontend — UI, Validation, Sorting & Edit Tests", () => {
                 text: "Tomorrow",
                 className: "tomorrow-badge"
             });
+
+            const inFiveDays = new Date(now);
+            inFiveDays.setDate(now.getDate() + 5);
+            const inFiveDaysStr = clientModule.getLocalDateString(inFiveDays);
+
+            expect(clientModule.getDeadlineBadgeInfo(inFiveDaysStr, "09:00")).toEqual({
+                text: "5 days left",
+                className: "countdown-badge"
+            });
         });
     });
 
