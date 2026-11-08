@@ -19,10 +19,11 @@ SERVER_PORT = process.env.SERVER_PORT
 // Save tasks to database
 
 // Initialize SQLite database (uses in-memory DB during tests, otherwise 'schedulite.db')
-const dbPath = process.env.NODE_ENV === "test" ? ":memory:" : "./schedulite.db";
+const isTestEnv = process.env.NODE_ENV === "test" || process.env.JEST_WORKER_ID !== undefined;
+const dbPath = isTestEnv ? ":memory:" : "./schedulite.db";
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) console.error(err.message);
-    if (process.env.NODE_ENV !== "test") {
+    if (!isTestEnv) {
         console.log('Connected to the SQLite database.');
     }
 });
