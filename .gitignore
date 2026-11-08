@@ -5,6 +5,10 @@
 *.db-wal
 *.sqlite
 *.sqlite3
+*.bak
+
+# ecosystem file
+ecosystem.config.js
 
 # Logs
 logs
