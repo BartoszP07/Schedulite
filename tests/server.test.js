@@ -10,7 +10,10 @@ const {
     buildCalendarEventResource,
     saveTokensToDb,
     isGoogleAuthError,
-    markGoogleTokenExpired
+    markGoogleTokenExpired,
+    decodeBase64Url,
+    getHeader,
+    extractEmailContent
 } = require("../server/server");
 
 // Helper to make HTTP requests against the Express app without extra dependencies
@@ -348,6 +351,78 @@ describe("Schedulite Server — Unit & API Tests", () => {
 
             const listRes = await requestApp(server, "GET", "/api/day-tasks");
             expect(listRes.body.map((t) => t.id)).toEqual([t1.body.id, t2.body.id]);
+        });
+    });
+
+    describe("Gmail & AI Email Parsing Utilities", () => {
+        test("decodeBase64Url handles standard and URL-safe base64 strings", () => {
+            const raw = "Hello, Bartosz! Testing Schedulite.";
+            const base64Url = Buffer.from(raw).toString("base64url");
+            expect(decodeBase64Url(base64Url)).toBe(raw);
+            expect(decodeBase64Url("")).toBe("");
+            expect(decodeBase64Url(null)).toBe("");
+        });
+
+        test("getHeader finds header values case-insensitively", () => {
+            const headers = [
+                { name: "Subject", value: "Amazon Order Dispatched" },
+                { name: "From", value: "auto-confirm@amazon.co.uk" },
+                { name: "Date", value: "Wed, 11 Nov 2026 12:00:00 GMT" }
+            ];
+
+            expect(getHeader(headers, "subject")).toBe("Amazon Order Dispatched");
+            expect(getHeader(headers, "SUBJECT")).toBe("Amazon Order Dispatched");
+            expect(getHeader(headers, "from")).toBe("auto-confirm@amazon.co.uk");
+            expect(getHeader(headers, "Non-Existent")).toBe("");
+        });
+
+        test("extractEmailContent extracts plain text and strips HTML", () => {
+            const plainPayload = {
+                mimeType: "text/plain",
+                body: { data: Buffer.from("Exam on Friday at 10:00").toString("base64url") }
+            };
+            expect(extractEmailContent(plainPayload)).toBe("Exam on Friday at 10:00");
+
+            const htmlPayload = {
+                mimeType: "text/html",
+                body: { data: Buffer.from("<p>Your package will arrive <strong>tomorrow</strong>.</p>").toString("base64url") }
+            };
+            expect(extractEmailContent(htmlPayload)).toBe("Your package will arrive tomorrow.");
+
+            const multipartPayload = {
+                mimeType: "multipart/alternative",
+                parts: [
+                    {
+                        mimeType: "text/plain",
+                        body: { data: Buffer.from("Multipart plain text body").toString("base64url") }
+                    }
+                ]
+            };
+            expect(extractEmailContent(multipartPayload)).toBe("Multipart plain text body");
+        });
+
+        test("GET /api/gmail/status returns connection health and processed stats", async () => {
+            const res = await requestApp(server, "GET", "/api/gmail/status");
+            expect(res.status).toBe(200);
+            expect(res.body).toHaveProperty("connected");
+            expect(res.body).toHaveProperty("expired");
+            expect(res.body).toHaveProperty("hasGmailScope");
+            expect(res.body).toHaveProperty("isSyncing", false);
+            expect(res.body).toHaveProperty("stats");
+        });
+
+        test("POST /api/gmail/sync returns disconnected status when Google OAuth is not connected", async () => {
+            markGoogleTokenExpired();
+            const res = await requestApp(server, "POST", "/api/gmail/sync", { daysBack: 3 });
+            expect(res.status).toBe(200);
+            expect(res.body.success).toBe(false);
+            expect(res.body.reason).toMatch(/not connected/i);
+        });
+
+        test("GET /api/gmail/processed returns recent processed emails list", async () => {
+            const res = await requestApp(server, "GET", "/api/gmail/processed");
+            expect(res.status).toBe(200);
+            expect(Array.isArray(res.body)).toBe(true);
         });
     });
 });

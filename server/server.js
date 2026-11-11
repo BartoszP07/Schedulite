@@ -6,6 +6,7 @@ const path = require("path");
 const crypto = require("crypto");
 const sqlite3 = require("sqlite3");
 const { google } = require('googleapis');
+const { GoogleGenAI, Type } = require("@google/genai");
 
 // Create express app and requirements
 const app = express();
@@ -14,7 +15,62 @@ app.use(express.json());
 
 
 // Get environment variables
-SERVER_PORT = process.env.SERVER_PORT
+SERVER_PORT = process.env.SERVER_PORT;
+GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// Initialise google ai
+const ai = new GoogleGenAI({
+    apiKey: GEMINI_API_KEY || "test-gemini-key"
+});
+
+// JSON Schema defining what the model MUST return
+const TaskExtractionSchema = {
+    type: Type.OBJECT,
+    properties: {
+        is_actionable_event: {
+            type: Type.BOOLEAN,
+            description: "True if this email contains a concrete deadline, delivery, meeting, or scheduled event. False for newsletters, spam, receipts without delivery dates, or general chatter."
+        },
+        title: {
+            type: Type.STRING,
+            description: "Concise title for the task (e.g. 'Amazon: Mechanical Keyboard Delivery' or 'Coursework 1 Submission')"
+        },
+        description: {
+            type: Type.STRING,
+            description: "Relevant details: tracking numbers, location, meeting links, or submission notes."
+        },
+        priority: {
+            type: Type.STRING,
+            enum: ["High", "Medium", "Low"],
+            description: "High for academic deadlines/exams, Medium for meetings/calls, Low for deliveries/general."
+        },
+        deadline: {
+            type: Type.STRING,
+            description: "Due date or event date in YYYY-MM-DD format based on reference date."
+        },
+        start_time: {
+            type: Type.STRING,
+            description: "Start time in 24h format HH:MM. Default to 09:00 if not specified."
+        },
+        duration: {
+            type: Type.STRING,
+            description: "Duration in hours as a string (e.g. '1', '0.5', '2'). Default '1'."
+        },
+        colour: {
+            type: Type.STRING,
+            enum: [
+                "#d50000", // Tomato (Deadlines / Assessments / Urgent)
+                "#8e24aa", // Grape (Meetings / Calls / Lectures)
+                "#33b679", // Sage (Deliveries / Packages)
+                "#4285f4", // Blue (General / Projects)
+                "#616161"  // Graphite (Low priority admin)
+            ],
+            description: "Pick the colour matching the category."
+        }
+    },
+    required: ["is_actionable_event", "title", "priority", "deadline", "start_time", "duration", "colour"],
+    propertyOrdering: ["is_actionable_event", "title", "description", "priority", "deadline", "start_time", "duration", "colour"]
+};
 
 // Save tasks to database
 
@@ -58,6 +114,21 @@ db.serialize(() => {
             loadSavedTokensFromDb();
         }
     });
+
+    // Table to track processed emails and prevent duplicate task scheduling
+    db.run(`CREATE TABLE IF NOT EXISTS processed_emails (
+        email_id TEXT PRIMARY KEY,
+        thread_id TEXT,
+        subject TEXT,
+        sender TEXT,
+        received_at TEXT,
+        task_id INTEGER,
+        is_event INTEGER DEFAULT 0,
+        processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Ensure tasks table has source_email_id column
+    db.run(`ALTER TABLE tasks ADD COLUMN source_email_id TEXT`, () => {});
 
     // Table for Quick Tasks (general checklist notepad)
     db.run(`CREATE TABLE IF NOT EXISTS day_tasks (
@@ -201,9 +272,13 @@ async function verifyGoogleTokenHealth() {
         }
     }
 
+    const credsScope = String(creds.scope || "");
+    const hasGmailScope = credsScope.includes("gmail.readonly");
+
     return {
         connected: isGoogleConnected && !isGoogleTokenExpired,
-        expired: isGoogleTokenExpired
+        expired: isGoogleTokenExpired,
+        hasGmailScope
     };
 }
 
@@ -238,7 +313,9 @@ oauth2Client.on("tokens", (tokens) => {
 
 // Google Calendar automatic sync helpers
 const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 const syncingTaskIds = new Set();
+let isEmailSyncInProgress = false;
 
 // Official Google Calendar event palette (colorId "1" to "11")
 const GOOGLE_CALENDAR_COLORS = [
@@ -434,11 +511,19 @@ app.get('/api/auth/google/status', async (req, res) => {
 
 app.get('/api/auth/google', (req, res) => {
     const forceReauth = req.query.reauth === "1" || req.query.reauth === "true";
-    if (isGoogleConnected && !isGoogleTokenExpired && !forceReauth) {
+    const creds = oauth2Client.credentials || {};
+    const scopeStr = String(creds.scope || "");
+    const hasGmailScope = scopeStr.includes("gmail.readonly");
+
+    // If connected and has both scopes, redirect back unless forced to re-auth
+    if (isGoogleConnected && !isGoogleTokenExpired && hasGmailScope && !forceReauth) {
         return res.redirect('/');
     }
 
-    const scopes = ['https://www.googleapis.com/auth/calendar.events'];
+    const scopes = [
+        'https://www.googleapis.com/auth/calendar.events',
+        'https://www.googleapis.com/auth/gmail.readonly'
+    ];
     
     // Generate the Google login URL
     const url = oauth2Client.generateAuthUrl({
@@ -680,6 +765,287 @@ app.delete("/api/day-tasks/:id", (req, res) => {
     });
 });
 
+// --- Gmail & AI Task Extraction Helpers ---
+
+function decodeBase64Url(base64UrlStr) {
+    if (!base64UrlStr || typeof base64UrlStr !== "string") return "";
+    try {
+        const normalized = base64UrlStr.replace(/-/g, "+").replace(/_/g, "/");
+        return Buffer.from(normalized, "base64").toString("utf8");
+    } catch (_) {
+        return "";
+    }
+}
+
+function getHeader(headers = [], name = "") {
+    if (!Array.isArray(headers) || !name) return "";
+    const target = name.toLowerCase();
+    const found = headers.find((h) => (h.name || "").toLowerCase() === target);
+    return found ? found.value : "";
+}
+
+function cleanHtmlContent(rawHtml) {
+    if (!rawHtml || typeof rawHtml !== "string") return "";
+    return rawHtml
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/\s+/g, " ")
+        .replace(/\s+([.,!?;:])/g, "$1")
+        .trim();
+}
+
+function extractTextFromParts(parts = []) {
+    let text = "";
+    for (const part of parts) {
+        if (part.mimeType === "text/plain" && part.body && part.body.data) {
+            text += decodeBase64Url(part.body.data) + "\n";
+        } else if (part.mimeType === "text/html" && !text && part.body && part.body.data) {
+            const rawHtml = decodeBase64Url(part.body.data);
+            text += cleanHtmlContent(rawHtml) + "\n";
+        } else if (part.parts && Array.isArray(part.parts)) {
+            text += extractTextFromParts(part.parts) + "\n";
+        }
+    }
+    return text.trim();
+}
+
+function extractEmailContent(messagePayload) {
+    if (!messagePayload) return "";
+    if (messagePayload.body && messagePayload.body.data) {
+        const raw = decodeBase64Url(messagePayload.body.data);
+        if (messagePayload.mimeType === "text/html") {
+            return cleanHtmlContent(raw);
+        }
+        return raw.trim();
+    }
+    if (messagePayload.parts && Array.isArray(messagePayload.parts)) {
+        return extractTextFromParts(messagePayload.parts);
+    }
+    return "";
+}
+
+async function extractTaskFromEmail(subject, body, emailDateStr) {
+    const apiKey = process.env.GEMINI_API_KEY || GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error("GEMINI_API_KEY is not configured.");
+    }
+
+    const refDate = emailDateStr ? new Date(emailDateStr) : new Date();
+    const validRef = !isNaN(refDate.getTime()) ? refDate : new Date();
+    const todayIso = validRef.toISOString().split("T")[0];
+    const dayOfWeek = validRef.toLocaleDateString("en-GB", { weekday: "long" });
+
+    const truncatedBody = (body || "").slice(0, 3500);
+
+    const prompt = `
+Reference Date (when email was received): ${todayIso} (${dayOfWeek})
+
+Email Subject: ${subject || "(No Subject)"}
+Email Content:
+${truncatedBody}
+    `.trim();
+
+    const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+            systemInstruction: `You are an intelligent scheduling assistant for Schedulite.
+Analyze the email and determine if it represents an actionable deadline, scheduled meeting, package delivery, appointment, flight/train, or academic assessment/submission.
+Resolve all relative dates ('tomorrow', 'this Friday', 'next Monday', 'in 3 days') relative to the Reference Date provided.
+If it is a promotional newsletter, sales discount blast, routine marketing, invoice/receipt without a delivery date, social media digest, or general conversation without an event or deadline, set is_actionable_event to false.
+
+For colour, choose strictly from:
+- "#d50000" (Tomato): High-priority deadlines, exams, coursework submissions, urgent action required.
+- "#8e24aa" (Grape): Meetings, appointments, office hours, lectures, syncs.
+- "#33b679" (Sage): Deliveries, courier packages (Amazon, DPD, Royal Mail), collections.
+- "#4285f4" (Blue): General events, projects, webinars, reminders.
+- "#616161" (Graphite): Low priority admin tasks.`.trim(),
+            responseMimeType: "application/json",
+            responseJsonSchema: TaskExtractionSchema
+        }
+    });
+
+    if (!response || !response.text) return null;
+    return JSON.parse(response.text);
+}
+
+async function syncRecentEmails(options = {}) {
+    if (!isGoogleConnected) {
+        return { success: false, reason: "Google account not connected", scanned: 0, scheduled: 0, tasks: [] };
+    }
+    if (isEmailSyncInProgress) {
+        return { success: false, reason: "Sync already in progress", scanned: 0, scheduled: 0, tasks: [] };
+    }
+
+    isEmailSyncInProgress = true;
+
+    try {
+        const daysBack = Number(options.daysBack) || 7;
+        const maxResults = Math.min(Number(options.maxResults) || 20, 50);
+
+        // Filter query to only inspect emails with date / event indicators
+        const query = options.query || `newer_than:${daysBack}d (deadline OR "due date" OR delivery OR "out for delivery" OR dispatched OR arriving OR meeting OR assignment OR coursework OR appointment OR scheduled)`;
+
+        const listRes = await gmail.users.messages.list({
+            userId: "me",
+            q: query,
+            maxResults
+        });
+
+        const messageSummaries = listRes.data?.messages || [];
+        if (messageSummaries.length === 0) {
+            return { success: true, scanned: 0, scheduled: 0, tasks: [] };
+        }
+
+        const newTasksScheduled = [];
+        let scannedCount = 0;
+
+        for (const summary of messageSummaries) {
+            const emailId = summary.id;
+            const threadId = summary.threadId;
+
+            // Check if already processed
+            const alreadyProcessed = await new Promise((resolve) => {
+                db.get(`SELECT email_id FROM processed_emails WHERE email_id = ?`, [emailId], (err, row) => {
+                    resolve(Boolean(row));
+                });
+            });
+
+            if (alreadyProcessed) {
+                continue;
+            }
+
+            scannedCount++;
+
+            // Fetch message details
+            const msg = await gmail.users.messages.get({
+                userId: "me",
+                id: emailId,
+                format: "full"
+            });
+
+            const headers = msg.data?.payload?.headers || [];
+            const subject = getHeader(headers, "Subject") || "(No Subject)";
+            const sender = getHeader(headers, "From") || "";
+            const dateHeader = getHeader(headers, "Date") || "";
+            const body = extractEmailContent(msg.data?.payload);
+
+            try {
+                const taskData = await extractTaskFromEmail(subject, body, dateHeader);
+
+                if (taskData && taskData.is_actionable_event && taskData.title && taskData.deadline) {
+                    const insertSql = `INSERT INTO tasks (title, description, priority, deadline, start_time, duration, colour, source_email_id) 
+                                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+
+                    const newTaskId = await new Promise((resolve, reject) => {
+                        db.run(insertSql, [
+                            taskData.title,
+                            taskData.description || `From: ${sender}`,
+                            taskData.priority || "Low",
+                            taskData.deadline,
+                            taskData.start_time || "09:00",
+                            taskData.duration || "1",
+                            taskData.colour || "#4285f4",
+                            emailId
+                        ], function (err) {
+                            if (err) reject(err);
+                            else resolve(this.lastID);
+                        });
+                    });
+
+                    // Mark email as processed with linked task
+                    db.run(
+                        `INSERT OR REPLACE INTO processed_emails (email_id, thread_id, subject, sender, received_at, task_id, is_event)
+                         VALUES (?, ?, ?, ?, ?, ?, 1)`,
+                        [emailId, threadId, subject, sender, dateHeader, newTaskId]
+                    );
+
+                    // Sync newly created task with Google Calendar
+                    syncTaskWithGoogleCalendar(newTaskId);
+
+                    newTasksScheduled.push({
+                        id: newTaskId,
+                        title: taskData.title,
+                        description: taskData.description,
+                        priority: taskData.priority,
+                        deadline: taskData.deadline,
+                        start_time: taskData.start_time,
+                        duration: taskData.duration,
+                        colour: taskData.colour
+                    });
+                } else {
+                    // Not actionable, mark as processed so we don't scan it again
+                    db.run(
+                        `INSERT OR REPLACE INTO processed_emails (email_id, thread_id, subject, sender, received_at, task_id, is_event)
+                         VALUES (?, ?, ?, ?, ?, NULL, 0)`,
+                        [emailId, threadId, subject, sender, dateHeader]
+                    );
+                }
+            } catch (err) {
+                console.error(`Error processing email ${emailId}:`, err.message);
+            }
+        }
+
+        return {
+            success: true,
+            scanned: scannedCount,
+            scheduled: newTasksScheduled.length,
+            tasks: newTasksScheduled
+        };
+    } catch (error) {
+        if (isGoogleAuthError(error)) {
+            markGoogleTokenExpired();
+        }
+        console.error("Error in syncRecentEmails:", error.message);
+        return { success: false, reason: error.message, error: error.message, scanned: 0, scheduled: 0, tasks: [] };
+    } finally {
+        isEmailSyncInProgress = false;
+    }
+}
+
+// Gmail API Endpoints
+app.post("/api/gmail/sync", async (req, res) => {
+    try {
+        const { daysBack, maxResults, query } = req.body || {};
+        const result = await syncRecentEmails({ daysBack, maxResults, query });
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get("/api/gmail/status", async (req, res) => {
+    const health = await verifyGoogleTokenHealth();
+
+    db.get(
+        `SELECT COUNT(*) as total_scanned, 
+                SUM(CASE WHEN is_event = 1 THEN 1 ELSE 0 END) as total_scheduled
+         FROM processed_emails`,
+        [],
+        (err, stats) => {
+            res.json({
+                connected: health.connected,
+                expired: health.expired,
+                hasGmailScope: health.hasGmailScope,
+                isSyncing: isEmailSyncInProgress,
+                stats: stats || { total_scanned: 0, total_scheduled: 0 }
+            });
+        }
+    );
+});
+
+app.get("/api/gmail/processed", (req, res) => {
+    db.all(`SELECT * FROM processed_emails ORDER BY processed_at DESC LIMIT 30`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows || []);
+    });
+});
+
 // Open the server when run directly
 if (require.main === module) {
     app.listen(SERVER_PORT, function(){
@@ -698,6 +1064,12 @@ module.exports = {
     saveTokensToDb,
     isGoogleAuthError,
     markGoogleTokenExpired,
-    verifyGoogleTokenHealth
+    verifyGoogleTokenHealth,
+    decodeBase64Url,
+    getHeader,
+    extractTextFromParts,
+    extractEmailContent,
+    extractTaskFromEmail,
+    syncRecentEmails
 };
 

@@ -246,6 +246,37 @@ body{
     box-shadow: 0px 0px 0px var(--border-colour);
 }
 
+#sync-gmail-btn{
+    display: inline-block;
+    padding: 0.45rem 0.9rem;
+    border-radius: 2rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    background-color: var(--section-background-colour);
+    color: var(--text-colour);
+    border: var(--border-width) solid var(--border-colour);
+    box-shadow: var(--shadow-offset-sm);
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease;
+}
+
+#sync-gmail-btn:hover{
+    background-color: var(--card-hover-colour);
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0px var(--border-colour);
+}
+
+#sync-gmail-btn:active{
+    transform: translate(1px, 1px);
+    box-shadow: 0px 0px 0px var(--border-colour);
+}
+
+#sync-gmail-btn.syncing{
+    opacity: 0.75;
+    pointer-events: none;
+    cursor: wait;
+}
+
 button{
     padding: 0.55rem 1.1rem;
     outline: none;
@@ -1152,6 +1183,7 @@ input[type="time"].edit-task-input {
 
     #google-calendar-btn,
     #google-reauth-btn,
+    #sync-gmail-btn,
     #theme-toggle-btn {
         width: auto;
         max-width: none;

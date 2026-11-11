@@ -956,17 +956,33 @@ if (!isTestEnv) {
 // Google Calendar connection status check
 const googleCalendarBtn = document.getElementById("google-calendar-btn");
 const googleReauthBtn = document.getElementById("google-reauth-btn");
+const syncGmailBtn = document.getElementById("sync-gmail-btn");
 
-function setGoogleButtonConnected() {
+function setGoogleButtonConnected(hasGmailScope = true) {
     if (!googleCalendarBtn) return;
     googleCalendarBtn.classList.remove("expired");
     googleCalendarBtn.classList.add("connected");
-    googleCalendarBtn.textContent = "Google Calendar Connected";
+    googleCalendarBtn.textContent = "Google Connected";
     googleCalendarBtn.removeAttribute("href");
     googleCalendarBtn.setAttribute("aria-disabled", "true");
 
     if (googleReauthBtn) {
         googleReauthBtn.classList.remove("hidden-btn");
+        if (!hasGmailScope) {
+            googleReauthBtn.textContent = "Enable Gmail Access";
+            googleReauthBtn.title = "Re-authenticate to grant Gmail read permission";
+        } else {
+            googleReauthBtn.textContent = "Re-authenticate";
+            googleReauthBtn.title = "Re-authenticate Google token";
+        }
+    }
+
+    if (syncGmailBtn) {
+        if (hasGmailScope) {
+            syncGmailBtn.classList.remove("hidden-btn");
+        } else {
+            syncGmailBtn.classList.add("hidden-btn");
+        }
     }
 }
 
@@ -981,6 +997,9 @@ function setGoogleButtonExpired() {
     if (googleReauthBtn) {
         googleReauthBtn.classList.add("hidden-btn");
     }
+    if (syncGmailBtn) {
+        syncGmailBtn.classList.add("hidden-btn");
+    }
 }
 
 function setGoogleButtonDisconnected() {
@@ -993,12 +1012,58 @@ function setGoogleButtonDisconnected() {
     if (googleReauthBtn) {
         googleReauthBtn.classList.add("hidden-btn");
     }
+    if (syncGmailBtn) {
+        syncGmailBtn.classList.add("hidden-btn");
+    }
 }
 
 if (googleCalendarBtn) {
     googleCalendarBtn.addEventListener("click", (event) => {
         if (googleCalendarBtn.classList.contains("connected")) {
             event.preventDefault();
+        }
+    });
+}
+
+if (syncGmailBtn) {
+    syncGmailBtn.addEventListener("click", async () => {
+        if (syncGmailBtn.classList.contains("syncing")) return;
+        syncGmailBtn.classList.add("syncing");
+        const originalText = syncGmailBtn.textContent;
+        syncGmailBtn.textContent = "Scanning...";
+
+        try {
+            const response = await fetch("/api/gmail/sync", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            });
+            const data = await response.json();
+
+            if (!data.success) {
+                syncGmailBtn.textContent = "Sync Failed";
+                setTimeout(() => {
+                    syncGmailBtn.textContent = originalText;
+                }, 3000);
+            } else if (data.scheduled > 0) {
+                syncGmailBtn.textContent = `✓ Added ${data.scheduled} Event${data.scheduled > 1 ? "s" : ""}!`;
+                await loadTasksFromServer();
+                setTimeout(() => {
+                    syncGmailBtn.textContent = originalText;
+                }, 4000);
+            } else {
+                syncGmailBtn.textContent = "✓ Up to Date";
+                setTimeout(() => {
+                    syncGmailBtn.textContent = originalText;
+                }, 3000);
+            }
+        } catch (err) {
+            console.error("Error syncing Gmail:", err);
+            syncGmailBtn.textContent = "Sync Error";
+            setTimeout(() => {
+                syncGmailBtn.textContent = originalText;
+            }, 3000);
+        } finally {
+            syncGmailBtn.classList.remove("syncing");
         }
     });
 }
@@ -1017,12 +1082,12 @@ async function checkGoogleConnectionStatus() {
         if (data.expired) {
             setGoogleButtonExpired();
         } else if (data.connected) {
-            setGoogleButtonConnected();
+            setGoogleButtonConnected(data.hasGmailScope !== false);
         } else {
             setGoogleButtonDisconnected();
         }
     } catch (error) {
-        console.error("Error checking Google Calendar connection status:", error);
+        console.error("Error checking Google connection status:", error);
     }
 }
 
