@@ -1096,6 +1096,156 @@ if (!isTestEnv) {
 }
 
 // ==========================================
+// Email AI & Category Rules Settings Modal
+// ==========================================
+const emailSettingsBtn = document.getElementById("email-settings-btn");
+const emailSettingsBackdrop = document.getElementById("email-settings-backdrop");
+const closeSettingsModalBtn = document.getElementById("close-settings-modal-btn");
+const cancelSettingsBtn = document.getElementById("cancel-settings-btn");
+const saveSettingsBtn = document.getElementById("save-settings-btn");
+const autoSyncIntervalSelect = document.getElementById("auto-sync-interval-select");
+const categoryRulesContainer = document.getElementById("category-rules-container");
+
+async function openEmailSettingsModal() {
+    if (!emailSettingsBackdrop) return;
+    emailSettingsBackdrop.classList.add("open");
+
+    try {
+        const res = await fetch("/api/email-categories");
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (autoSyncIntervalSelect && data.autoSyncInterval !== undefined) {
+            autoSyncIntervalSelect.value = String(data.autoSyncInterval);
+        }
+
+        if (categoryRulesContainer && Array.isArray(data.categories)) {
+            categoryRulesContainer.innerHTML = "";
+
+            data.categories.forEach((cat) => {
+                const card = document.createElement("div");
+                card.className = "category-rule-card";
+                card.dataset.categoryKey = cat.category_key;
+                card.dataset.selectedColour = cat.colour || "#4285f4";
+
+                const top = document.createElement("div");
+                top.className = "category-rule-top";
+
+                const info = document.createElement("div");
+                info.innerHTML = `<span class="category-rule-label">${cat.label}</span><br><span class="category-rule-desc">${cat.description}</span>`;
+                top.appendChild(info);
+
+                const swatchesHolder = document.createElement("div");
+                swatchesHolder.className = "category-rule-swatches";
+
+                TASK_COLOUR_PRESETS.forEach((preset) => {
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.className = "colour-swatch";
+                    btn.dataset.colour = preset.hex.toLowerCase();
+                    btn.style.backgroundColor = preset.hex;
+                    btn.title = preset.name;
+                    btn.setAttribute("aria-label", `${preset.name} swatch`);
+
+                    if (preset.hex.toLowerCase() === (cat.colour || "").toLowerCase()) {
+                        btn.classList.add("selected");
+                    }
+
+                    btn.addEventListener("click", () => {
+                        swatchesHolder.querySelectorAll(".colour-swatch").forEach((s) => s.classList.remove("selected"));
+                        btn.classList.add("selected");
+                        card.dataset.selectedColour = preset.hex;
+                    });
+
+                    swatchesHolder.appendChild(btn);
+                });
+
+                card.appendChild(top);
+                card.appendChild(swatchesHolder);
+                categoryRulesContainer.appendChild(card);
+            });
+        }
+    } catch (err) {
+        console.error("Error loading email categories:", err);
+    }
+}
+
+function closeEmailSettingsModal() {
+    if (emailSettingsBackdrop) {
+        emailSettingsBackdrop.classList.remove("open");
+    }
+}
+
+async function saveEmailSettings() {
+    if (!saveSettingsBtn || !categoryRulesContainer) return;
+    const cards = Array.from(categoryRulesContainer.querySelectorAll(".category-rule-card"));
+    const categories = cards.map((c) => ({
+        category_key: c.dataset.categoryKey,
+        colour: c.dataset.selectedColour
+    }));
+    const autoSyncInterval = autoSyncIntervalSelect ? Number(autoSyncIntervalSelect.value) : 15;
+
+    const originalText = saveSettingsBtn.textContent;
+    saveSettingsBtn.textContent = "Saving...";
+
+    try {
+        const res = await fetch("/api/email-categories", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ categories, autoSyncInterval })
+        });
+        if (res.ok) {
+            saveSettingsBtn.textContent = "✓ Saved!";
+            setTimeout(() => {
+                saveSettingsBtn.textContent = originalText;
+                closeEmailSettingsModal();
+            }, 600);
+        } else {
+            saveSettingsBtn.textContent = "Error";
+            setTimeout(() => {
+                saveSettingsBtn.textContent = originalText;
+            }, 1500);
+        }
+    } catch (err) {
+        console.error("Error saving email settings:", err);
+        saveSettingsBtn.textContent = "Error";
+        setTimeout(() => {
+            saveSettingsBtn.textContent = originalText;
+        }, 1500);
+    }
+}
+
+if (emailSettingsBtn) {
+    emailSettingsBtn.addEventListener("click", openEmailSettingsModal);
+}
+
+if (closeSettingsModalBtn) {
+    closeSettingsModalBtn.addEventListener("click", closeEmailSettingsModal);
+}
+
+if (cancelSettingsBtn) {
+    cancelSettingsBtn.addEventListener("click", closeEmailSettingsModal);
+}
+
+if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener("click", saveEmailSettings);
+}
+
+if (emailSettingsBackdrop) {
+    emailSettingsBackdrop.addEventListener("click", (e) => {
+        if (e.target === emailSettingsBackdrop) {
+            closeEmailSettingsModal();
+        }
+    });
+}
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && emailSettingsBackdrop && emailSettingsBackdrop.classList.contains("open")) {
+        closeEmailSettingsModal();
+    }
+});
+
+// ==========================================
 // Tab Navigation & Day Tasks Integration
 // ==========================================
 const appTabsNav = document.getElementById("app-tabs");

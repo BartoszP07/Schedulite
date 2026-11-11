@@ -18,6 +18,7 @@
         <div id="google-auth-controls">
             <button type="button" id="theme-toggle-btn" aria-label="Toggle dark mode" title="Toggle dark mode">🌙 Dark</button>
             <button type="button" id="sync-gmail-btn" class="hidden-btn" title="Scan recent emails for deadlines and events">📧 Sync Emails</button>
+            <button type="button" id="email-settings-btn" title="Configure email categories, colours, and auto-scan">⚙️ Rules</button>
             <a href="/api/auth/google" id="google-calendar-btn">Connect Google Calendar</a>
             <a href="/api/auth/google?reauth=1" id="google-reauth-btn" class="hidden-btn" title="Re-authenticate Google token">Re-authenticate</a>
         </div>
@@ -116,6 +117,40 @@
             </div>
             <div id="empty-day-tasks-message">Nothing on the list yet — add a task above!</div>
             <ul id="day-task-list"></ul>
+        </div>
+    </div>
+
+    <!-- Email AI & Categories Settings Modal -->
+    <div id="email-settings-backdrop" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+        <div id="email-settings-modal">
+            <div class="modal-header">
+                <h2 id="settings-modal-title">⚙️ Email AI & Colour Rules</h2>
+                <button type="button" id="close-settings-modal-btn" class="close-modal-btn" aria-label="Close modal">&times;</button>
+            </div>
+
+            <div class="settings-section">
+                <label for="auto-sync-interval-select" class="settings-section-title">⏱️ Background Auto-Scan Frequency</label>
+                <p class="settings-help-text">How often Schedulite automatically checks your email for new events and deadlines.</p>
+                <select id="auto-sync-interval-select" class="task-input-text">
+                    <option value="15">Every 15 minutes (Recommended)</option>
+                    <option value="30">Every 30 minutes</option>
+                    <option value="60">Every 1 hour</option>
+                    <option value="0">Manual only (Disable auto-scan)</option>
+                </select>
+            </div>
+
+            <div class="settings-section">
+                <span class="settings-section-title">🎨 Category Colour Mappings</span>
+                <p class="settings-help-text">Pick the colour for each type of event when detected by the model.</p>
+                <div id="category-rules-container">
+                    <!-- Populated dynamically by script.js -->
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" id="cancel-settings-btn">Cancel</button>
+                <button type="button" id="save-settings-btn" class="save-settings-btn">Save Rules</button>
+            </div>
         </div>
     </div>
 

@@ -59,13 +59,18 @@ const TaskExtractionSchema = {
         colour: {
             type: Type.STRING,
             enum: [
-                "#d50000", // Tomato (Deadlines / Assessments / Urgent)
-                "#8e24aa", // Grape (Meetings / Calls / Lectures)
-                "#33b679", // Sage (Deliveries / Packages)
-                "#4285f4", // Blue (General / Projects)
-                "#616161"  // Graphite (Low priority admin)
+                "#4285f4", // Blue
+                "#7986cb", // Lavender
+                "#8e24aa", // Grape
+                "#e67c73", // Flamingo
+                "#d50000", // Tomato
+                "#f4511e", // Tangerine
+                "#f6bf26", // Banana
+                "#33b679", // Sage
+                "#0b8043", // Basil
+                "#616161"  // Graphite
             ],
-            description: "Pick the colour matching the category."
+            description: "Pick the colour matching the category based on the user's category rules."
         }
     },
     required: ["is_actionable_event", "title", "priority", "deadline", "start_time", "duration", "colour"],
@@ -144,7 +149,82 @@ db.serialize(() => {
         db.run(`ALTER TABLE day_tasks ADD COLUMN pinned INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE day_tasks ADD COLUMN colour TEXT DEFAULT ''`, () => {});
     });
+
+    // Table for customisable email AI categories and assigned colours
+    db.run(`CREATE TABLE IF NOT EXISTS email_categories (
+        category_key TEXT PRIMARY KEY,
+        label TEXT NOT NULL,
+        description TEXT NOT NULL,
+        colour TEXT NOT NULL
+    )`, () => {
+        const stmt = db.prepare(`INSERT OR IGNORE INTO email_categories (category_key, label, description, colour) VALUES (?, ?, ?, ?)`);
+        for (const cat of DEFAULT_EMAIL_CATEGORIES) {
+            stmt.run([cat.category_key, cat.label, cat.description, cat.colour]);
+        }
+        stmt.finalize(() => {
+            refreshEmailCategoriesCache();
+        });
+    });
+
+    // Table for application settings (e.g. email auto sync interval)
+    db.run(`CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    )`, () => {
+        db.run(`INSERT OR IGNORE INTO app_settings (key, value) VALUES ('email_auto_sync_interval', '15')`, () => {
+            db.get(`SELECT value FROM app_settings WHERE key = 'email_auto_sync_interval'`, [], (err, row) => {
+                if (!err && row && row.value) {
+                    updateAutoSyncTimer(Number(row.value));
+                } else {
+                    updateAutoSyncTimer(15);
+                }
+            });
+        });
+    });
 });
+
+// Default AI categories and assigned colors
+const DEFAULT_EMAIL_CATEGORIES = [
+    { category_key: "deadlines", label: "Deadlines & Assessments", description: "Coursework, exams, urgent submissions", colour: "#d50000" },
+    { category_key: "meetings", label: "Meetings & Lectures", description: "Supervisor syncs, classes, appointments", colour: "#8e24aa" },
+    { category_key: "deliveries", label: "Package Deliveries", description: "Courier tracking, Amazon, postal parcels", colour: "#33b679" },
+    { category_key: "events", label: "General Events", description: "Webinars, society events, reservations", colour: "#4285f4" },
+    { category_key: "admin", label: "Admin & Reminders", description: "Bills, confirmations, low-priority reminders", colour: "#616161" }
+];
+
+let emailCategoriesCache = [...DEFAULT_EMAIL_CATEGORIES];
+let autoSyncTimer = null;
+let autoSyncIntervalMins = 15;
+
+function refreshEmailCategoriesCache() {
+    db.all(`SELECT category_key, label, description, colour FROM email_categories`, [], (err, rows) => {
+        if (!err && Array.isArray(rows) && rows.length > 0) {
+            emailCategoriesCache = rows;
+        }
+    });
+}
+
+function updateAutoSyncTimer(intervalMins) {
+    if (autoSyncTimer) {
+        clearInterval(autoSyncTimer);
+        autoSyncTimer = null;
+    }
+
+    autoSyncIntervalMins = Math.max(0, parseInt(intervalMins, 10) || 0);
+    if (isTestEnv || autoSyncIntervalMins <= 0) return;
+
+    console.log(`[Auto-Sync] Email background scan scheduled every ${autoSyncIntervalMins} minute(s).`);
+    autoSyncTimer = setInterval(async () => {
+        if (isGoogleConnected && !isGoogleTokenExpired && !isEmailSyncInProgress) {
+            console.log("[Auto-Sync] Running background scan for new emails...");
+            try {
+                await syncRecentEmails({ daysBack: 2 });
+            } catch (err) {
+                console.error("[Auto-Sync] Background scan error:", err.message);
+            }
+        }
+    }, autoSyncIntervalMins * 60 * 1000);
+}
 
 // Accepts "#rrggbb" or "" (no colour); anything else is treated as no colour
 function normaliseDayTaskColour(value) {
@@ -842,6 +922,10 @@ async function extractTaskFromEmail(subject, body, emailDateStr) {
 
     const truncatedBody = (body || "").slice(0, 3500);
 
+    const rulesText = emailCategoriesCache.map((c) => 
+        `- "${c.colour}": ${c.label} (${c.description})`
+    ).join("\n");
+
     const prompt = `
 Reference Date (when email was received): ${todayIso} (${dayOfWeek})
 
@@ -859,12 +943,8 @@ Analyze the email and determine if it represents an actionable deadline, schedul
 Resolve all relative dates ('tomorrow', 'this Friday', 'next Monday', 'in 3 days') relative to the Reference Date provided.
 If it is a promotional newsletter, sales discount blast, routine marketing, invoice/receipt without a delivery date, social media digest, or general conversation without an event or deadline, set is_actionable_event to false.
 
-For colour, choose strictly from:
-- "#d50000" (Tomato): High-priority deadlines, exams, coursework submissions, urgent action required.
-- "#8e24aa" (Grape): Meetings, appointments, office hours, lectures, syncs.
-- "#33b679" (Sage): Deliveries, courier packages (Amazon, DPD, Royal Mail), collections.
-- "#4285f4" (Blue): General events, projects, webinars, reminders.
-- "#616161" (Graphite): Low priority admin tasks.`.trim(),
+For colour, choose strictly based on the user-configured category rules:
+${rulesText}`.trim(),
             responseMimeType: "application/json",
             responseJsonSchema: TaskExtractionSchema
         }
@@ -1046,6 +1126,50 @@ app.get("/api/gmail/processed", (req, res) => {
     });
 });
 
+// Category and Auto-Sync Settings Endpoints
+app.get("/api/email-categories", (req, res) => {
+    db.all(`SELECT category_key, label, description, colour FROM email_categories`, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({
+            categories: rows && rows.length > 0 ? rows : emailCategoriesCache,
+            autoSyncInterval: autoSyncIntervalMins
+        });
+    });
+});
+
+app.put("/api/email-categories", (req, res) => {
+    const { categories, autoSyncInterval } = req.body || {};
+
+    if (Array.isArray(categories)) {
+        const updateStmt = db.prepare(`UPDATE email_categories SET colour = ? WHERE category_key = ?`);
+        for (const cat of categories) {
+            if (cat.category_key && typeof cat.colour === "string" && /^#[0-9A-Fa-f]{6}$/.test(cat.colour.trim())) {
+                updateStmt.run([cat.colour.trim().toLowerCase(), cat.category_key]);
+            }
+        }
+        updateStmt.finalize(() => {
+            refreshEmailCategoriesCache();
+        });
+    }
+
+    if (autoSyncInterval !== undefined) {
+        const interval = Math.max(0, parseInt(autoSyncInterval, 10) || 0);
+        db.run(`INSERT OR REPLACE INTO app_settings (key, value) VALUES ('email_auto_sync_interval', ?)`, [String(interval)], () => {
+            updateAutoSyncTimer(interval);
+        });
+    }
+
+    setTimeout(() => {
+        db.all(`SELECT category_key, label, description, colour FROM email_categories`, [], (err, rows) => {
+            res.json({
+                success: true,
+                categories: rows && rows.length > 0 ? rows : emailCategoriesCache,
+                autoSyncInterval: autoSyncIntervalMins
+            });
+        });
+    }, 40);
+});
+
 // Open the server when run directly
 if (require.main === module) {
     app.listen(SERVER_PORT, function(){
@@ -1070,6 +1194,10 @@ module.exports = {
     extractTextFromParts,
     extractEmailContent,
     extractTaskFromEmail,
-    syncRecentEmails
+    syncRecentEmails,
+    DEFAULT_EMAIL_CATEGORIES,
+    updateAutoSyncTimer,
+    refreshEmailCategoriesCache,
+    emailCategoriesCache
 };
 

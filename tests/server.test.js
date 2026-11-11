@@ -424,6 +424,31 @@ describe("Schedulite Server — Unit & API Tests", () => {
             expect(res.status).toBe(200);
             expect(Array.isArray(res.body)).toBe(true);
         });
+
+        test("GET /api/email-categories returns seeded categories and default autoSyncInterval", async () => {
+            const res = await requestApp(server, "GET", "/api/email-categories");
+            expect(res.status).toBe(200);
+            expect(Array.isArray(res.body.categories)).toBe(true);
+            expect(res.body.categories.length).toBeGreaterThanOrEqual(5);
+            expect(typeof res.body.autoSyncInterval).toBe("number");
+        });
+
+        test("PUT /api/email-categories updates category colours and autoSyncInterval", async () => {
+            const updatePayload = {
+                categories: [
+                    { category_key: "deliveries", colour: "#f6bf26" } // Switch deliveries to Banana
+                ],
+                autoSyncInterval: 30
+            };
+            const putRes = await requestApp(server, "PUT", "/api/email-categories", updatePayload);
+            expect(putRes.status).toBe(200);
+            expect(putRes.body.success).toBe(true);
+            expect(putRes.body.autoSyncInterval).toBe(30);
+
+            const deliveryCat = putRes.body.categories.find((c) => c.category_key === "deliveries");
+            expect(deliveryCat).toBeDefined();
+            expect(deliveryCat.colour).toBe("#f6bf26");
+        });
     });
 });
 
