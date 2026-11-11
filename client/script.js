@@ -970,18 +970,22 @@ function setGoogleButtonConnected(hasGmailScope = true) {
         googleReauthBtn.classList.remove("hidden-btn");
         if (!hasGmailScope) {
             googleReauthBtn.textContent = "Enable Gmail Access";
-            googleReauthBtn.title = "Re-authenticate to grant Gmail read permission";
+            googleReauthBtn.title = "Click to grant Gmail permission for email scanning";
+            googleReauthBtn.classList.add("needs-attention");
         } else {
             googleReauthBtn.textContent = "Re-authenticate";
             googleReauthBtn.title = "Re-authenticate Google token";
+            googleReauthBtn.classList.remove("needs-attention");
         }
     }
 
     if (syncGmailBtn) {
-        if (hasGmailScope) {
-            syncGmailBtn.classList.remove("hidden-btn");
+        syncGmailBtn.classList.remove("hidden-btn");
+        syncGmailBtn.dataset.hasGmailScope = String(hasGmailScope);
+        if (!hasGmailScope) {
+            syncGmailBtn.title = "Gmail access not granted yet. Click 'Enable Gmail Access' first.";
         } else {
-            syncGmailBtn.classList.add("hidden-btn");
+            syncGmailBtn.title = "Scan recent emails for deadlines and events";
         }
     }
 }
@@ -1027,6 +1031,14 @@ if (googleCalendarBtn) {
 
 if (syncGmailBtn) {
     syncGmailBtn.addEventListener("click", async () => {
+        if (syncGmailBtn.dataset.hasGmailScope === "false") {
+            alert("Gmail permission needed:\n\nPlease click 'Enable Gmail Access' in the top bar to authorize Schedulite to scan your emails.");
+            if (googleReauthBtn) {
+                googleReauthBtn.classList.add("needs-attention");
+            }
+            return;
+        }
+
         if (syncGmailBtn.classList.contains("syncing")) return;
         syncGmailBtn.classList.add("syncing");
         const originalText = syncGmailBtn.textContent;
@@ -1040,6 +1052,13 @@ if (syncGmailBtn) {
             const data = await response.json();
 
             if (!data.success) {
+                console.error("Gmail sync failed:", data);
+                if (data.needsReauth) {
+                    alert("Gmail permission needed:\n\n" + (data.reason || "Please click 'Enable Gmail Access' to connect your inbox."));
+                    setGoogleButtonConnected(false);
+                } else {
+                    alert("Email scan issue:\n\n" + (data.reason || data.error || "Failed to scan emails."));
+                }
                 syncGmailBtn.textContent = "Sync Failed";
                 setTimeout(() => {
                     syncGmailBtn.textContent = originalText;
@@ -1051,13 +1070,14 @@ if (syncGmailBtn) {
                     syncGmailBtn.textContent = originalText;
                 }, 4000);
             } else {
-                syncGmailBtn.textContent = "✓ Up to Date";
+                syncGmailBtn.textContent = `✓ Up to Date (${data.scanned || 0} checked)`;
                 setTimeout(() => {
                     syncGmailBtn.textContent = originalText;
                 }, 3000);
             }
         } catch (err) {
             console.error("Error syncing Gmail:", err);
+            alert("Network error: Could not reach server to sync emails.");
             syncGmailBtn.textContent = "Sync Error";
             setTimeout(() => {
                 syncGmailBtn.textContent = originalText;
@@ -1071,7 +1091,6 @@ if (syncGmailBtn) {
 async function checkGoogleConnectionStatus() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("google") === "connected") {
-        setGoogleButtonConnected();
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -1082,7 +1101,7 @@ async function checkGoogleConnectionStatus() {
         if (data.expired) {
             setGoogleButtonExpired();
         } else if (data.connected) {
-            setGoogleButtonConnected(data.hasGmailScope !== false);
+            setGoogleButtonConnected(data.hasGmailScope === true);
         } else {
             setGoogleButtonDisconnected();
         }

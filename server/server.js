@@ -286,10 +286,11 @@ function isGoogleAuthError(error) {
     if (!error) return false;
     const status = Number(error?.code || error?.status || error?.response?.status);
     const errorCode = String(error?.response?.data?.error || "").toLowerCase();
-    const message = String(error?.message || "").toLowerCase();
+    const message = String(error?.message || error?.response?.data?.error_description || "").toLowerCase();
 
     return (
         status === 401 ||
+        (status === 403 && (message.includes("insufficient") || message.includes("scope") || message.includes("permission"))) ||
         errorCode === "invalid_grant" ||
         errorCode === "invalid_token" ||
         message.includes("invalid_grant") ||
@@ -934,32 +935,58 @@ Email Content:
 ${truncatedBody}
     `.trim();
 
-    const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents: prompt,
-        config: {
-            systemInstruction: `You are an intelligent scheduling assistant for Schedulite.
+    const config = {
+        systemInstruction: `You are an intelligent scheduling assistant for Schedulite.
 Analyze the email and determine if it represents an actionable deadline, scheduled meeting, package delivery, appointment, flight/train, or academic assessment/submission.
 Resolve all relative dates ('tomorrow', 'this Friday', 'next Monday', 'in 3 days') relative to the Reference Date provided.
 If it is a promotional newsletter, sales discount blast, routine marketing, invoice/receipt without a delivery date, social media digest, or general conversation without an event or deadline, set is_actionable_event to false.
 
 For colour, choose strictly based on the user-configured category rules:
 ${rulesText}`.trim(),
-            responseMimeType: "application/json",
-            responseJsonSchema: TaskExtractionSchema
-        }
-    });
+        responseMimeType: "application/json",
+        responseJsonSchema: TaskExtractionSchema
+    };
 
-    if (!response || !response.text) return null;
-    return JSON.parse(response.text);
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-3.5-flash-lite",
+            contents: prompt,
+            config
+        });
+        if (!response || !response.text) return null;
+        return JSON.parse(response.text);
+    } catch (err) {
+        console.warn("gemini-3.5-flash-lite call failed, trying gemini-3.8-flash fallback:", err.message);
+        const response = await ai.models.generateContent({
+            model: "gemini-3.8-flash",
+            contents: prompt,
+            config
+        });
+        if (!response || !response.text) return null;
+        return JSON.parse(response.text);
+    }
 }
 
 async function syncRecentEmails(options = {}) {
     if (!isGoogleConnected) {
         return { success: false, reason: "Google account not connected", scanned: 0, scheduled: 0, tasks: [] };
     }
+
+    const scopeStr = String(oauth2Client.credentials?.scope || "");
+    if (!scopeStr.includes("gmail.readonly")) {
+        return {
+            success: false,
+            needsReauth: true,
+            reason: "Gmail permission not granted yet. Please click 'Enable Gmail Access' in the header to authorize email scanning.",
+            error: "insufficient_scope",
+            scanned: 0,
+            scheduled: 0,
+            tasks: []
+        };
+    }
+
     if (isEmailSyncInProgress) {
-        return { success: false, reason: "Sync already in progress", scanned: 0, scheduled: 0, tasks: [] };
+        return { success: false, reason: "Sync already in progress. Please wait a moment.", scanned: 0, scheduled: 0, tasks: [] };
     }
 
     isEmailSyncInProgress = true;

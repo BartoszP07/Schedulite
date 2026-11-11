@@ -246,6 +246,23 @@ body{
     box-shadow: 0px 0px 0px var(--border-colour);
 }
 
+#google-reauth-btn.needs-attention{
+    background-color: var(--medium-priority-colour);
+    color: var(--badge-text-colour);
+    font-weight: 800;
+    box-shadow: 0 0 8px rgba(246, 191, 38, 0.6), var(--shadow-offset-sm);
+    animation: reauthPulse 1.6s infinite ease-in-out;
+}
+
+@keyframes reauthPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.04);
+    }
+}
+
 #sync-gmail-btn{
     display: inline-block;
     padding: 0.45rem 0.9rem;
