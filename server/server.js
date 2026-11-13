@@ -1199,7 +1199,7 @@ app.put("/api/email-categories", (req, res) => {
 
 // Open the server when run directly
 if (require.main === module) {
-    app.listen(SERVER_PORT, function(){
+    app.listen(SERVER_PORT, "127.0.0.1", function(){
         console.log(`Running server on: localhost:${SERVER_PORT}`);
     });
 }
