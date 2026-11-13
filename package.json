@@ -13,7 +13,8 @@
     "test": "jest"
   },
   "allowScripts": {
-    "sqlite3@6.0.1": true
+    "sqlite3@6.0.1": true,
+    "protobufjs@7.6.6": true
   },
   "devDependencies": {
     "jest": "^29.7.0",
